@@ -1,0 +1,6 @@
+rpi3:
+  vlan: 15
+  interface: eth0
+  ip: "10.10.10.15"
+  netmask: "255.255.255.0"
+  path: /etc/network/interfaces

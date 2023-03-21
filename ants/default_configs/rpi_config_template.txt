@@ -1,0 +1,23 @@
+auto eth0
+iface eth0 inet static
+        address 192.168.2.2
+        netmask 255.255.255.0
+
+# Management VLAN 4000
+auto eth0.4000
+iface eth0.4000 inet static
+        address {{ ip }}
+        netmask {{ netmask }}
+        { % if gw }
+        gateway {{ gw }}
+        {% endif %}
+
+# Management ip VLAN 4050
+auto eth0.4050
+iface eth0.4050 inet static
+        address {{ ip2 }}
+        netmask {{ netmask2 }}
+        { % if gw2 }
+        gateway {{ gw2 }}
+        {% endif %}
+

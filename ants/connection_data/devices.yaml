@@ -1,0 +1,29 @@
+ssfp1: 
+  ip: "192.168.90.111"
+  gw: "192.168.90.1"
+  login : admin
+  password: PleaseChangeTheAdminPassword
+ssfp2:
+  ip: "192.168.90.105"
+  gw: "192.168.90.1"
+  login : admin
+  password: PleaseChangeTheAdminPassword
+  root_password: root
+  root_password: root
+rpi2:
+  ip: "192.168.89.102"
+  netmask: "255.255.255.0"
+  gw: "192.168.89.1"
+  ip2: "192.168.90.102"
+  netmask2: "255.255.255.0"
+  login: pi
+  password: raspberry
+rpi3:
+  ip: "192.168.89.103"
+  netmask: "255.255.255.0"
+  gw: "192.168.89.1"
+  ip2: "192.168.90.103"
+  netmask2: "255.255.255.0"
+  login: pi
+  password: raspberry
+  root_password: root
