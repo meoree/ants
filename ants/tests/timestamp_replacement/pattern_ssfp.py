@@ -79,11 +79,7 @@ def print_timestamp():
             print(f"Timestamp: {time.time()}")
 
 if __name__ == "__main__":
-    with open(f"{path_connection}/devices.yaml") as file:
-        devices  = yaml.safe_load(file)
-    with open(f"{path_test}/network_params_for_test.yaml") as file:
-         network_params_for_test = yaml.safe_load(file)
-    
+   print("я тут")
 
 
         

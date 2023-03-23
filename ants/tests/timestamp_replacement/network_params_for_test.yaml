@@ -1,0 +1,13 @@
+rpi3:
+  vlan: 550
+  interface: eth0
+  ip: "10.3.50.103"
+  netmask: "255.255.255.0"
+  path: /etc/network/interfaces
+
+ssfp1:
+  vlan: 550
+  interface: gbe0
+  ip: "10.3.50.111"
+  netmask: "255.255.255.0"
+  path: path: /etc/network/interfaces.d/gbe

@@ -3,13 +3,12 @@ ssfp1:
   gw: "192.168.90.1"
   login : admin
   password: PleaseChangeTheAdminPassword
+  root_password: PleaseChangeTheRootPassword
 ssfp2:
   ip: "192.168.90.105"
   gw: "192.168.90.1"
   login : admin
   password: PleaseChangeTheAdminPassword
-  root_password: root
-  root_password: root
 rpi2:
   ip: "192.168.89.102"
   netmask: "255.255.255.0"
