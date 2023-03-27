@@ -13,6 +13,7 @@ from sys import argv
 from rich.logging import RichHandler
 from jinja2 import Environment, FileSystemLoader
 from pprint import pprint
+from ..connection import BaseSSHParamiko
 
 #Remove scapy WARNING message 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
@@ -30,7 +31,6 @@ logging.basicConfig(
 )
 
 path_test = Path(Path.cwd(), 'ants', 'tests', 'timestamp-replacement')
-path_config = Path(Path.cwd(), 'ants', 'config_templates')
 path_connection = Path(Path.cwd(), 'ants', 'connection_data')
         
 def send_packets(mac_dst, mac_src, ip_src, ip_dst, number_of_test, count_of_packets=1):
@@ -79,7 +79,12 @@ def print_timestamp():
             print(f"Timestamp: {time.time()}")
 
 if __name__ == "__main__":
-   print("я тут")
+    with open(f"{path_connection}/devices.yaml") as file:
+        devices  = yaml.safe_load(file)
+   # with open("/commands/ssfp1_commands.txt") as file:
+   #      output = file.read()
+
+
 
 
         

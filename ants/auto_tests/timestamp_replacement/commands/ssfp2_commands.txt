@@ -1,0 +1,13 @@
+run-klish 
+configure terminal
+timesync stop profile0
+timesync stop profile1
+timesync config profile0
+duration endless
+mode slave
+ntp count 1
+ntp host 0 10.3.50.122
+type ntp
+up
+timesync start profile0
+show timesync results profile0

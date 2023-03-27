@@ -28,7 +28,7 @@ logging.basicConfig(
 )
 
 path_test = Path(Path.cwd(), 'ants', 'tests', 'timestamp_replacement')
-path_config = Path(Path.cwd(), 'ants', 'config_templates')
+path_config = Path(Path.cwd(), 'ants', 'network_test_configs')
 path_connection = Path(Path.cwd(), 'ants', 'connection_data')
 path_default = Path(Path.cwd(), 'ants', 'default_configs')
 
@@ -104,7 +104,7 @@ class BaseSSHParamiko:
             self._shell = self.cl.invoke_shell()
             time.sleep(self.short_sleep)
             self._shell.recv(self.max_read)
-            self.change_to_root()
+            self._change_to_root()
             self.promt = self._get_promt()
 
         except socket.timeout as error:
@@ -114,18 +114,18 @@ class BaseSSHParamiko:
         time.sleep(self.short_sleep)
         self._shell.send("\n")
         time.sleep(self.short_sleep)
-        output = self.formatting_output()
+        output = self._formatting_output()
         match = re.search(r".+[\$#]", output)
         if match:
             return match.group()
         else:
             return "\$"
     
-    def formatting_output(self):
+    def _formatting_output(self):
         return self._shell.recv(self.max_read).decode("utf-8").replace("\r\n", "\n")
    
     def _output_without_regex(self, command, promt):
-        output = self.formatting_output()
+        output = self._formatting_output()
         regex =  command + r"(.+)"
         match = re.search(regex, output, re.DOTALL)
         if match:
@@ -138,23 +138,23 @@ class BaseSSHParamiko:
     
     def send_shell_show_commands(self, commands, print_output=True):
         time.sleep(self.long_sleep)
-        logging.info(f"Send shell show command(s): {commands}")
+        logging.info(f">>> Send shell show command(s): {commands}")
         try:
             if type(commands) == str:
                 self._send_line_shell(commands)
-                output = self.formatting_output()
+                output = self._formatting_output()
             else:
                 output = ""
                 for command in commands:
                     self._send_line_shell(command)
                     time.sleep(self.long_sleep)
-                    output += self.formatting_output()
+                    output += self._formatting_output()
         except paramiko.SSHException as error:
             logging.error(f"Возникила ошибка {error} на {self.ip}")
         if print_output:
             return output
   
-    def change_to_root(self):
+    def _change_to_root(self):
         logging.info(f"Change privileges to root")
         try:
            self._send_line_shell("su -")
@@ -164,9 +164,12 @@ class BaseSSHParamiko:
         except paramiko.SSHException as error:
             logging.error(f"Возникла ошибка {error} на {self.ip}")
 
+    def close(self):
+        self.cl.close()
+        logging.info(f"<<<<< Close connection {self.ip}")
 #-----------------------------Exec commands----------------------------#          
     def send_exec_commands(self, commands, print_output=True):
-        logging.info(f"Send exec show command(s): {commands}")
+        logging.info(f">>> Send exec show command(s): {commands}")
         try:
             if type(commands) == str:
                 stdin, stdout, stderr = self.cl.exec_command(commands)
@@ -179,19 +182,32 @@ class BaseSSHParamiko:
         except paramiko.SSHException as error:
             logging.error(f"Возникла ошибка {error} на {self.ip}")
         if print_output:
-            return result
-
-    def close(self):
-        self.cl.close()
-        logging.info(f"<<<<< Close connection {self.ip}")
-
+            return result        
 
 class SFTPParamiko(BaseSSHParamiko):
     def __init__(self, **device_data):
-        super().__init__(**device_data)
+        self.ip = device_data["ip"]
+        self.login = device_data["login"]
+        self.root_password = device_data["root_password"]
+
+        logging.info(f">>>>> Connection to {self.ip} with root")
         try:
-            self.sftp_cl = self.cl.open_sftp()
-            logging.info(f"SFTP was opened")
+            self.root_cl = paramiko.SSHClient()
+            self.root_cl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self.root_cl.connect(
+                        hostname=self.ip,
+                        username="root",
+                        password=self.root_password,
+                        look_for_keys=False,
+                        allow_agent=False,
+                        timeout=30
+                    )
+            logging.info(f"Authentication as root is successful")
+            try:
+                self.sftp_cl = self.root_cl.open_sftp()
+                logging.info(f"SFTP was opened")
+            except Exception:
+                logging.error("Какая-то ошибка")
         except socket.timeout as error:
             logging.error(f"Возникла ошибка {error} на {self.ip}")
 
@@ -284,10 +300,7 @@ if __name__ == "__main__":
     with open(f"{path_connection}/devices.yaml") as file:
         devices  = yaml.safe_load(file)
     
-    ssh_con = SFTPParamiko(**devices["ssfp1"])
-    print(ssh_con.read_file("/etc/network/interfaces.d/gbe"))
-    ssh_con.add_to_file("#", "/etc/network/interfaces.d/gbe")
-    print(ssh_con.read_file("/etc/network/interfaces.d/gbe"))
+    ssh_con = BaseSSHParamiko(**devices["ssfp1"])
     ssh_con.close()
  
 
