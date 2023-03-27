@@ -4,16 +4,19 @@ import time
 import pexpect
 import paramiko
 import re
-import yaml
 import logging
-import time
 import logging
 import socket
-from pathlib import Path
-from sys import argv
 from rich.logging import RichHandler
-from jinja2 import Environment, FileSystemLoader
-from pprint import pprint
+
+
+logging.basicConfig(
+    format="{message}",
+    datefmt="%H:%M:%S",
+    style="{",
+    level=logging.INFO,
+    handlers=[RichHandler()]
+)
 
 class BaseSSHPexpect:
     def __init__(self, **device_data):
@@ -67,8 +70,8 @@ class BaseSSHParamiko:
         self.password = device_data["password"]
         self.root_password = device_data["root_password"]
         self.short_sleep = 0.2
-        self.long_sleep = 1
-        self.max_read = 10000
+        self.long_sleep = 5
+        self.max_read = 100000
 
         logging.info(f">>>>> Connection to {self.ip} as {self.login}")
         try: 
@@ -116,15 +119,16 @@ class BaseSSHParamiko:
             return match.groups()[0]
         return output.replace("\r\n", "\n")
     
-    def _send_line_shell(self, command):
-        return self._shell.send(f"{command}\n")
+    def _send_line_shell(self, command): 
+        return self._shell.send(f"{command} \n")
     
-    def send_shell_show_commands(self, commands, print_output=True):
+    def send_shell_commands(self, commands, print_output=True):
         time.sleep(self.long_sleep)
-        logging.info(f">>> Send shell show command(s): {commands}")
+        logging.info(f">>> Send shell command(s): {commands}")
         try:
             if type(commands) == str:
                 self._send_line_shell(commands)
+                time.sleep(self.long_sleep)
                 output = self._formatting_output()
             else:
                 output = ""
@@ -150,6 +154,7 @@ class BaseSSHParamiko:
     def close(self):
         self.cl.close()
         logging.info(f"<<<<< Close connection {self.ip}")
+
 #-----------------------------Exec commands----------------------------#          
     def send_exec_commands(self, commands, print_output=True):
         logging.info(f">>> Send exec show command(s): {commands}")
@@ -233,5 +238,3 @@ class SFTPParamiko(BaseSSHParamiko):
         self.sftp_cl.close()
         logging.info(f"<<<<< Close SFTP connection {self.ip}")
 
-if __name__ == "__main__":
-    pass

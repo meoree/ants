@@ -13,7 +13,8 @@ from sys import argv
 from rich.logging import RichHandler
 from jinja2 import Environment, FileSystemLoader
 from pprint import pprint
-from ..connection import BaseSSHParamiko
+
+from ants.auto_tests.connection import BaseSSHParamiko
 
 #Remove scapy WARNING message 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
@@ -21,6 +22,7 @@ from scapy.all import *
 from scapy.layers.inet import *
 from scapy.layers.l2 import *
 from scapy.packet import fuzz
+
 
 logging.basicConfig(
     format="{message}",
@@ -30,8 +32,9 @@ logging.basicConfig(
     handlers=[RichHandler()]
 )
 
-path_test = Path(Path.cwd(), 'ants', 'tests', 'timestamp-replacement')
-path_connection = Path(Path.cwd(), 'ants', 'connection_data')
+path_test = Path(Path.cwd(), 'ants', 'tests', 'timestamp_replacement')
+path_connection = Path(Path.cwd(), 'data', 'connection_data')
+path_commands = Path(Path.cwd(), 'ants', 'auto_tests', 'timestamp_replacement', 'commands')
         
 def send_packets(mac_dst, mac_src, ip_src, ip_dst, number_of_test, count_of_packets=1):
         """
@@ -75,14 +78,27 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, number_of_test, count_of_pack
         )
         sendp(packet, count=count_of_packets, iface="eth0.550")
     
-def print_timestamp():
+def print_timestamp(): 
             print(f"Timestamp: {time.time()}")
 
-if __name__ == "__main__":
+def timestamp_test_start(device_dict):
     with open(f"{path_connection}/devices.yaml") as file:
         devices  = yaml.safe_load(file)
-   # with open("/commands/ssfp1_commands.txt") as file:
-   #      output = file.read()
+    with open(f"{path_commands}/ssfp1_commands.txt") as file:
+        ssfp1_commands = file.read().split('\n')
+    ssfp1, ssfp2 = device_dict["ssfp"]
+    try:
+        connection1 = BaseSSHParamiko(**devices[ssfp1])
+        output = connection1.send_shell_commands(["run-klish", "conf t", "show version", "show timesync results profile0"])
+        connection1.close()
+    except OSError as error:
+         logging.error(f"На устройстве {ssfp1} возникла ошибка - {error}")
+    return output
+
+   
+
+if __name__ == "__main__":
+    timestamp_test_start()
 
 
 

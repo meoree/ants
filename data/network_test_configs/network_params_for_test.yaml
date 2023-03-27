@@ -5,7 +5,7 @@ rpi3:
   netmask: "255.255.255.0"
   path: /etc/network/interfaces
 
-ssfp1:
+ssfp4:
   vlan: 550
   interface: gbe0
   ip: "10.3.50.111"

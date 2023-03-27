@@ -1,14 +1,15 @@
-ssfp1: 
+ssfp4: 
   ip: "192.168.90.111"
   gw: "192.168.90.1"
   login : admin
   password: PleaseChangeTheAdminPassword
   root_password: PleaseChangeTheRootPassword
-ssfp2:
+ssfp8:
   ip: "192.168.90.105"
   gw: "192.168.90.1"
   login : admin
   password: PleaseChangeTheAdminPassword
+  root_password: PleaseChangeTheRootPassword
 rpi2:
   ip: "192.168.89.102"
   netmask: "255.255.255.0"
