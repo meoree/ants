@@ -16,6 +16,7 @@ from pprint import pprint
 
 from ants.auto_tests.connection import BaseSSHParamiko
 
+
 #Remove scapy WARNING message 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import *
@@ -86,19 +87,32 @@ def timestamp_test_start(device_dict):
         devices  = yaml.safe_load(file)
     with open(f"{path_commands}/ssfp1_commands.txt") as file:
         ssfp1_commands = file.read().split('\n')
+    with open(f"{path_commands}/ssfp2_commands.txt") as file:
+        ssfp2_commands = file.read().split('\n')
     ssfp1, ssfp2 = device_dict["ssfp"]
+   # with BaseSSHParamiko(**devices[ssfp1]) as connection1:
+       #  output = connection1.send_shell_show_commands("run-kl")
     try:
         connection1 = BaseSSHParamiko(**devices[ssfp1])
-        output = connection1.send_shell_commands(["run-klish", "conf t", "show version", "show timesync results profile0"])
+        output1 = connection1.send_shell_commands(ssfp1_commands, print_output=True)
         connection1.close()
+
+        connection2 = BaseSSHParamiko(**devices[ssfp2])
+        output2 = connection2.send_shell_commands(ssfp2_commands, print_output=True)
+        connection2.close()
     except OSError as error:
          logging.error(f"На устройстве {ssfp1} возникла ошибка - {error}")
-    return output
+    return output1, output2
 
-   
 
 if __name__ == "__main__":
-    timestamp_test_start()
+    device_dict = {
+        "ssfp": ["ssfp4", "ssfp8"],
+        "rpi" : ["rpi3"]
+    }
+    device_list = ["ssfp1", "rpi3"]
+    print(timestamp_test_start(device_dict))
+ 
 
 
 

@@ -120,7 +120,7 @@ class BaseSSHParamiko:
         return output.replace("\r\n", "\n")
     
     def _send_line_shell(self, command): 
-        return self._shell.send(f"{command} \n")
+        return self._shell.send(f"{command}\n")
     
     def send_shell_commands(self, commands, print_output=True):
         time.sleep(self.long_sleep)
@@ -151,6 +151,12 @@ class BaseSSHParamiko:
         except paramiko.SSHException as error:
             logging.error(f"Возникла ошибка {error} на {self.ip}")
 
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        
     def close(self):
         self.cl.close()
         logging.info(f"<<<<< Close connection {self.ip}")
@@ -172,7 +178,7 @@ class BaseSSHParamiko:
         if print_output:
             return result        
 
-class SFTPParamiko(BaseSSHParamiko):
+class SFTPParamiko():
     def __init__(self, **device_data):
         self.ip = device_data["ip"]
         self.login = device_data["login"]
