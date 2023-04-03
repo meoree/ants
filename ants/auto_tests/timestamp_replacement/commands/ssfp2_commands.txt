@@ -10,4 +10,17 @@ ntp host 0 10.3.50.122
 type ntp
 up
 timesync start profile0
-show timesync results profile0
+tsins stop profile0
+tsins stop profile1
+tsins config profile0
+duration endless 
+level iface 0 udp 
+level iface 1 udp
+pattern iface 0 4242424242424242 
+pattern iface 1 4242424242424242 
+status iface 0 on
+status iface 1 off
+tspoint iface 0 ingress 
+tspoint iface 1 ingress
+up
+tsins start profile0

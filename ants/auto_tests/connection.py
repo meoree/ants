@@ -1,22 +1,14 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -B python3
 # -*- coding: utf-8 -*-
-import time
-import pexpect
-import paramiko
+import logging
 import re
-import logging
-import logging
 import socket
+import time
+
+import paramiko
+import pexpect
 from rich.logging import RichHandler
-
-
-logging.basicConfig(
-    format="{message}",
-    datefmt="%H:%M:%S",
-    style="{",
-    level=logging.INFO,
-    handlers=[RichHandler()]
-)
+from paramiko import ssh_exception
 
 class BaseSSHPexpect:
     def __init__(self, **device_data):
@@ -36,7 +28,6 @@ class BaseSSHPexpect:
             self.ssh.sendline(" ")
             self.ssh.expect(self.promt)
             logging.info(f"Authentication is successful")
-
         except pexpect.exceptions.TIMEOUT as error:
             logging.error(f"Failed to connect to {self.ip}")
 
@@ -83,8 +74,9 @@ class BaseSSHParamiko:
                  password=self.password,
                  look_for_keys=False,
                  allow_agent=False,
-                 timeout=30
-            )
+                 timeout=30, 
+                 disabled_algorithms={'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
+                 )
             logging.info("Authentication is successful")
 
             self._shell = self.cl.invoke_shell()
@@ -92,9 +84,10 @@ class BaseSSHParamiko:
             self._shell.recv(self.max_read)
             self._change_to_root()
             self.promt = self._get_promt()
-
         except socket.timeout as error:
             logging.error(f"Возникла ошибка {error} на {self.ip}")
+        except socket.error as error:
+            logging.error(f"Возникла ошибка {error} на {self.ip}")   
 
     def _get_promt(self):
         time.sleep(self.short_sleep)
@@ -231,7 +224,7 @@ class SFTPParamiko():
     def overwrite_file(self, content, file_path):
         try:
             logging.info(f"Работа с файлом {file_path}")
-            remote_file =self.sftp_cl.open(file_path, mode="w+")
+            remote_file = self.sftp_cl.open(file_path, mode="w+")
             result = remote_file.write(content)
             logging.info(f"Файл {file_path} изменен")
         except (paramiko.SFTPError, IOError) as error:
@@ -239,6 +232,20 @@ class SFTPParamiko():
         finally:
             remote_file.close()
             logging.info(f"Закрытие файла")
+
+    def put_file(self, local_path, remote_path):
+        try:
+            logging.info(f"Работа с файлом {local_path}")
+            self.sftp_cl.put(local_path, remote_path)
+            logging.info(f"Файл {local_path} был перенесен по пути {remote_path}")
+        except (paramiko.SFTPError, IOError) as error:
+            logging.error(f"Возникла ошибка {error} при работе с файлом {remote_path}")
+
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def close(self):
         self.sftp_cl.close()

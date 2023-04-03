@@ -1,21 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import time
-import pexpect
-import paramiko
-import re
-import yaml
-import logging
-import time
-import logging
-from pathlib import Path
 from sys import argv
-from rich.logging import RichHandler
-from jinja2 import Environment, FileSystemLoader
-from pprint import pprint
-
-from ants.auto_tests.connection import BaseSSHParamiko
-
+import argparse
+import logging
 
 #Remove scapy WARNING message 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
@@ -25,20 +13,8 @@ from scapy.layers.l2 import *
 from scapy.packet import fuzz
 
 
-logging.basicConfig(
-    format="{message}",
-    datefmt="%H:%M:%S",
-    style="{",
-    level=logging.INFO,
-    handlers=[RichHandler()]
-)
-
-path_test = Path(Path.cwd(), 'ants', 'tests', 'timestamp_replacement')
-path_connection = Path(Path.cwd(), 'data', 'connection_data')
-path_commands = Path(Path.cwd(), 'ants', 'auto_tests', 'timestamp_replacement', 'commands')
-        
-def send_packets(mac_dst, mac_src, ip_src, ip_dst, number_of_test, count_of_packets=1):
-        """
+def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, number_of_test, count_of_packets=1000):
+    """
         Отправляет пакеты с заданными параметрами и вставленными паттернами в поле дата 
         для тестирования функции временных меток на SSFP.
        
@@ -49,72 +25,63 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, number_of_test, count_of_pack
             ip_dst (str): IP-адрес назначения
             count_of_packets (int): количество пакетов для отправки. По умолчанию 1.
 
-        """
-        fill1 = "X" * 484
-        pattern1 = "AAAAAAAA"
-        fill2 = "X" * 1452
-        pattern2 = "BBBBBBBB"
+    """
+    fill1 = "X" * 484
+    pattern1 = "AAAAAAAA"
+    fill2 = "X" * 1452
+    pattern2 = "BBBBBBBB"
 
-        try:
-            if int(number_of_test) == 1:
-                data = pattern1
-            elif int(number_of_test) == 2:
-                data = pattern1 + pattern2 + fill2
-            elif int(number_of_test) == 3:
-                data =  pattern1 + fill2 + pattern2 
-            elif int(number_of_test) == 4:
-                data =  fill2 + pattern1 + pattern2 
-            elif int(number_of_test) == 5:
-                data =  fill1 + pattern1 + fill1 + pattern2 + fill1 
-        except: ValueError
-
-        packet = (
-            fuzz(
-            Ether(src=mac_src, dst=mac_dst)
-            /Dot1Q(vlan=550, id=550)
-            /IP(src=ip_src, dst=ip_dst, version=4)
-            /UDP()
-            )
-            /data
-        )
-        sendp(packet, count=count_of_packets, iface="eth0.550")
-    
-def print_timestamp(): 
-            print(f"Timestamp: {time.time()}")
-
-def timestamp_test_start(device_dict):
-    with open(f"{path_connection}/devices.yaml") as file:
-        devices  = yaml.safe_load(file)
-    with open(f"{path_commands}/ssfp1_commands.txt") as file:
-        ssfp1_commands = file.read().split('\n')
-    with open(f"{path_commands}/ssfp2_commands.txt") as file:
-        ssfp2_commands = file.read().split('\n')
-    ssfp1, ssfp2 = device_dict["ssfp"]
-   # with BaseSSHParamiko(**devices[ssfp1]) as connection1:
-       #  output = connection1.send_shell_show_commands("run-kl")
+    print(mac_dst, mac_src, ip_src, ip_dst, interface)
     try:
-        connection1 = BaseSSHParamiko(**devices[ssfp1])
-        output1 = connection1.send_shell_commands(ssfp1_commands, print_output=True)
-        connection1.close()
+        if int(number_of_test) == 1:
+            data = pattern1
+        elif int(number_of_test) == 2:
+            data = pattern1 + pattern2 + fill2
+        elif int(number_of_test) == 3:
+            data =  pattern1 + fill2 + pattern2 
+        elif int(number_of_test) == 4:
+            data =  fill2 + pattern1 + pattern2 
+        elif int(number_of_test) == 5:
+            data =  fill1 + pattern1 + fill1 + pattern2 + fill1 
+    except: ValueError
 
-        connection2 = BaseSSHParamiko(**devices[ssfp2])
-        output2 = connection2.send_shell_commands(ssfp2_commands, print_output=True)
-        connection2.close()
-    except OSError as error:
-         logging.error(f"На устройстве {ssfp1} возникла ошибка - {error}")
-    return output1, output2
+    try:
+        vlan = interface.split(".")[1]
+    except: IndexError
 
+    packet = (
+        fuzz(
+        Ether(src=mac_src, dst=mac_dst)
+        /Dot1Q(vlan=vlan, id=vlan)
+        /IP(src=ip_src, dst=ip_dst, version=4)
+        /UDP()
+        )
+        /data
+    )
+
+    try:
+        sendp(packet, count=count_of_packets, iface=interface)
+    except Scapy_Exception as error:
+        print(f"An error occurred while trying to send scapy packets: {error}")
+  
+def print_timestamp():
+    print(f"Timestamp: {time.time()}")
 
 if __name__ == "__main__":
-    device_dict = {
-        "ssfp": ["ssfp4", "ssfp8"],
-        "rpi" : ["rpi3"]
-    }
-    device_list = ["ssfp1", "rpi3"]
-    print(timestamp_test_start(device_dict))
- 
 
+    parser = argparse.ArgumentParser(description='Send scapy packets with pattern')
+    parser.add_argument('mac_src', type=str, 
+                        help='Source MAC-address in the format "aa:bb:cc:dd:ee:ff"')
+    parser.add_argument('mac_dst', type=str, 
+                        help='Destination MAC-address in the format "aa:bb:cc:dd:ee:ff"')
+    parser.add_argument('ip_src', type=str, 
+                        help='Source IPv4-address')
+    parser.add_argument('ip_dst', type=str, 
+                        help='Destination IPv4-address')
+    parser.add_argument('interface', type=str, 
+                        help='The interface from that the packets will be sent in the format "eth0.50"')
+    parser.add_argument('number_of_test', type=int, 
+                        help='Number of test')
+    args = vars(parser.parse_args())
+    send_packets(**args)
 
-
-
-        
