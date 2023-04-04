@@ -24,10 +24,12 @@ logging.basicConfig(
     handlers=[RichHandler()]
 )
 
-path_test = Path(Path.cwd(), 'ants', 'tests', 'timestamp_replacement')
-path_connection = Path(Path.cwd(), 'data', 'connection_data')
-path_commands = Path(Path.cwd(), 'ants', 'auto_tests', 'timestamp_replacement', 'commands')     
-path_test_network = path_commands = Path(Path.cwd(), 'data', 'network_test_configs')    
+path_home = Path(Path.home(), "python", "auto_network_test_system")
+
+path_test = Path(path_home, 'ants', 'tests', 'timestamp_replacement')
+path_connection = Path(path_home, 'data', 'connection_data')
+path_commands = Path(path_home, 'ants', 'auto_tests', 'timestamp_replacement', 'commands')
+path_test_network = Path(path_home,'data', 'network_test_configs')
 
 def timestamp_test_start(tsins_device_dict, tsins_network_params):
     with open(f"{path_connection}/devices.yaml") as file:
@@ -51,13 +53,13 @@ def configure_ssfp(devices, file, ssfp):
     except OSError as error:
         logging.error(f"An error has occurred on the device {ssh.ip} - {error}")
 
-def get_rpi_settings_for_script(devices, rpi):
+def get_rpi_settings_for_script(devices, rpi, vlan=550):
     try:
         with BaseSSHParamiko(**devices[rpi]) as ssh:
             output = ssh.send_exec_commands("ip a")
     except socket.timeout as error:
-         logging.error(f"На устройстве возникла ошибка - {error}")
-    match = re.search(r"\w+.550.+link/ether\s+(?P<mac>\S+)", output, re.DOTALL)
+         logging.error(f"An error has occurred on the device - {error}")
+    match = re.search(rf"\w+.{vlan}.+link/ether\s+(?P<mac>\S+)", output, re.DOTALL)
     if match:
         return match.group('mac')
     else:
@@ -68,7 +70,7 @@ if __name__ == "__main__":
         "ssfp": ["ssfp4", "ssfp8"],
         "rpi" : ["rpi2", "rpi3"], 
     }
-    
+    print(Path.home())
     #должен передавать ci-cd
     with open(f"{path_test_network}/network_params_for_test.yaml") as file:
         network_params = yaml.safe_load(file)
