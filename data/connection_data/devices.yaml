@@ -18,6 +18,7 @@ rpi2:
   netmask2: "255.255.255.0"
   login: pi
   password: raspberry
+  root_password: root
 rpi3:
   ip: "192.168.89.103"
   netmask: "255.255.255.0"

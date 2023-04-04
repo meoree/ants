@@ -1,23 +1,21 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -B python3
 # -*- coding: utf-8 -*-
-import time
-import pexpect
-import paramiko
+import logging
 import re
-import yaml
-import logging
-import time
-import logging
 import socket
+import time
 from pathlib import Path
-from sys import argv
-from rich.logging import RichHandler
-from jinja2 import Environment, FileSystemLoader
 from pprint import pprint
+from sys import argv
 
-from auto_tests.connection import BaseSSHParamiko
-from auto_tests.timestamp_replacement.pattern_ssfp import timestamp_test_start
+import paramiko
+import pexpect
+import yaml
+from jinja2 import Environment, FileSystemLoader
+from rich.logging import RichHandler
 
+from auto_tests.connection import BaseSSHParamiko, SFTPParamiko
+from auto_tests.timestamp_replacement.tsins import timestamp_test_start
 
 logging.basicConfig(
     format="{message}",
@@ -57,14 +55,14 @@ def check_network_config_file(network_params, content):
         return template_network_config
     return False
 
-def setup_network_config_file(cl_SSH, cl_SFTP, network_params_for_test):
+def setup_network_config_file(ssh, sftp, network_params_for_test):
     file_path = network_params_for_test["path"]
-    file_content = cl_SFTP.read_file(file_path)
+    file_content = sftp.read_file(file_path)
     template = check_network_config_file(network_params_for_test, file_content)
     if template:
         logging.info("Настройка подинтерфейса на устройстве")
-        cl_SFTP.add_to_file(template, file_path)
-        cl_SSH.send_setup_command("sudo systemctl restart networking.service")
+        sftp.add_to_file(template, file_path)
+        ssh.send_exec_commands("sudo systemctl restart networking.service")
 
 #-----------------------------Сброс файла в дефолт----------------------------#
 def default_template_network_config_file(management_device):
@@ -75,7 +73,7 @@ def default_template_network_config_file(management_device):
 def default_network_config_file(ssh_client, sftp_client, mngmt_params, file_path):
     content = default_template_network_config_file(mngmt_params)
     sftp_client.overwrite_file(content, file_path)
-    ssh_client.send_setup_command("sudo systemctl restart networking.service")
+    ssh_client.send_exec_commands("sudo systemctl restart networking.service")
 
 
 if __name__ == "__main__":
@@ -83,8 +81,17 @@ if __name__ == "__main__":
         "ssfp": ["ssfp4", "ssfp8"],
         "rpi" : ["rpi3"]
     }
-    device_list = ["ssfp1", "rpi3"]
-    print(timestamp_test_start(device_dict))
+    with open(f"{path_connection}/devices.yaml") as file:
+            devices = yaml.safe_load(file)
+    with open(f"{path_config}/network_params_for_test.yaml") as file:
+            network_params = yaml.safe_load(file)
+
+    current_test_device = "rpi3"
+    with BaseSSHParamiko(**devices[current_test_device]) as ssh_rpi3:
+        with SFTPParamiko(**devices[current_test_device]) as sftp_rpi3:
+            setup_network_config_file(ssh_rpi3, sftp_rpi3, network_params[current_test_device])
+
+    
  
 
     
