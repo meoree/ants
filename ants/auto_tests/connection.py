@@ -5,9 +5,19 @@ import re
 import socket
 import time
 
+from paramiko.client import SSHClient, AutoAddPolicy
+from paramiko.ssh_exception import AuthenticationException, SSHException, BadHostKeyException
 import paramiko
 import pexpect
+from rich.logging import RichHandler
 
+logging.basicConfig(
+    format="{message}",
+    datefmt="%H:%M:%S",
+    style="{",
+    level=logging.INFO,
+    handlers=[RichHandler()]
+)
 
 class BaseSSHPexpect:
     def __init__(self, **device_data):
@@ -60,13 +70,13 @@ class BaseSSHParamiko:
         self.password = device_data["password"]
         self.root_password = device_data["root_password"]
         self.short_sleep = 0.2
-        self.long_sleep = 5
+        self.long_sleep = 2
         self.max_read = 100000
 
         logging.info(f">>>>> Connection to {self.ip} as {self.login}")
         try:
-            self.cl = paramiko.SSHClient()
-            self.cl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self.cl = SSHClient()
+            self.cl.set_missing_host_key_policy(AutoAddPolicy())
             self.cl.connect(
                 hostname=self.ip,
                 username=self.login,
@@ -83,10 +93,14 @@ class BaseSSHParamiko:
             self._shell.recv(self.max_read)
             self._change_to_root()
             self.promt = self._get_promt()
-        except socket.timeout as error:
+        except (socket.timeout, socket.error) as error:
             logging.error(f"An error {error} occurred on {self.ip}")
-        except socket.error as error:
-            logging.error(f"An error {error} occurred on {self.ip}")
+        except AuthenticationException:
+            logging.error("Authentication failed, please verify your credentials")
+        except BadHostKeyException as error:
+            logging.error(f"Unable to verify server's host key: {error}")
+        except SSHException as error:
+            logging.error(f"Unable to establish SSH connection: {error}")
 
     def _get_promt(self):
         time.sleep(self.short_sleep)
@@ -148,21 +162,23 @@ class BaseSSHParamiko:
     def send_exec_commands(self, commands, print_output=True):
         logging.info(f">>> Send exec show command(s): {commands}")
         try:
+            result = ""
             if type(commands) == str:
                 stdin, stdout, stderr = self.cl.exec_command(commands)
-                result = stdout.read().decode("utf-8").replace("\r\n", "\n")
+                if print_output:
+                    result = stdout.read().decode("utf-8").replace("\r\n", "\n")
             else:
-                result = ""
                 for command in commands:
                     stdin, stdout, stderr = self.cl.exec_command(command)
-                    result += stdout.read().decode("utf-8").replace("\r\n", "\n") + '\n'
+                    if print_output:
+                        result += stdout.read().decode("utf-8").replace("\r\n", "\n") + '\n'
             if print_output:
                 return result
         except paramiko.SSHException as error:
             logging.error(f"An error {error} occurred on {self.ip}")
 
 
-class SFTPParamiko():
+class SFTPParamiko:
     def __init__(self, **device_data):
         self.ip = device_data["ip"]
         self.login = device_data["login"]
@@ -170,7 +186,7 @@ class SFTPParamiko():
 
         logging.info(f">>>>> Connection to {self.ip} with root")
         try:
-            self.root_cl = paramiko.SSHClient()
+            self.root_cl = SSHClient()
             self.root_cl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self.root_cl.connect(
                 hostname=self.ip,
@@ -185,7 +201,14 @@ class SFTPParamiko():
             logging.info("SFTP was opened")
         except socket.timeout as error:
             logging.error(f"An error {error} occurred on {self.ip}")
+        except AuthenticationException:
+            logging.error("Authentication failed, please verify your credentials")
+        except BadHostKeyException as error:
+            logging.error(f"Unable to verify server's host key: {error}")
+        except SSHException as error:
+            logging.error(f"Unable to establish SSH connection: {error}")
 
+    # -----------------------------File actions----------------------------#
     def read_file(self, file_path):
         try:
             logging.info(f"Read the file {file_path}")
@@ -220,11 +243,45 @@ class SFTPParamiko():
 
     def put_file(self, local_path, remote_path):
         try:
-            logging.info(f"Put {local_path}")
-            self.sftp_cl.put(local_path, remote_path)
-            logging.info(f"Файл {local_path} был перенесен по пути {remote_path}")
+            logging.info(f"Put {local_path} on {self.ip}")
+            logging.debug(f"Local path: {local_path}, remote path: {remote_path}")
+            # sftp.put returns "IOError: Failure" if the path name is a directory.
+            # Therefore, you need to add a filename to the directory.
+            # https://github.com/paramiko/paramiko/issues/1000?ysclid=lg51z5k5nz705979083
+            self.sftp_cl.put(local_path, f"{remote_path}/{local_path}")
+            logging.info(f"File {local_path} has been copied to path {remote_path}")
         except (paramiko.SFTPError, IOError) as error:
-            logging.error(f"There was an error {error} while working with the file {local_path}")
+            logging.error(f"There was an error - '{error}' while working with the file {local_path}")
+
+    # -----------------------------Path actions----------------------------#
+    def change_dir(self, dir_path):
+        try:
+            logging.info(f"Change directory to {dir_path}")
+            return self.sftp_cl.chdir(dir_path)
+        except (paramiko.SFTPError, IOError) as error:
+            logging.error(f"There was an error: '{error}' while working with the directory {dir_path}")
+
+    def get_cwd(self):
+        try:
+            logging.info(f"Get current directory: {self.sftp_cl.getcwd()}")
+            return self.sftp_cl.getcwd()
+        except (paramiko.SFTPError, IOError) as error:
+            logging.error(f"There was an error {error} while working with the file {self.sftp_cl.getcwd()}")
+
+    def mkdir(self, remote_path):
+        try:
+            logging.info(f"Create directory: {remote_path}")
+            self.sftp_cl.mkdir(remote_path)
+            logging.debug(f"Directory {remote_path} created successfully")
+        except (paramiko.SFTPError, IOError) as error:
+            logging.error(f"There was an error - '{error}' while working with the file {remote_path}")
+
+    def list_dir(self):
+        try:
+            logging.info(f"List directory: {self.sftp_cl.listdir()}")
+            return self.sftp_cl.listdir()
+        except (paramiko.SFTPError, IOError) as error:
+            logging.error(f"There was an error - '{error}' while working with the file {self.sftp_cl.listdir()}")
 
     def __enter__(self):
         return self
@@ -233,5 +290,5 @@ class SFTPParamiko():
         self.close()
 
     def close(self):
-        self.sftp_cl.close()
+        self.root_cl.close()
         logging.info(f"<<<<< Close SFTP connection {self.ip}")
