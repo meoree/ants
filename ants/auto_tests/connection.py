@@ -4,12 +4,16 @@ import logging
 import re
 import socket
 import time
+from typing import List, Any
 
 from paramiko.client import SSHClient, AutoAddPolicy
 from paramiko.ssh_exception import AuthenticationException, SSHException, BadHostKeyException
 import paramiko
 import pexpect
 from rich.logging import RichHandler
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+import yaml
 
 logging.basicConfig(
     format="{message}",
@@ -121,7 +125,7 @@ class BaseSSHParamiko:
 
     def send_shell_commands(self, commands, print_output=True):
         time.sleep(self.long_sleep)
-        logging.info(f">>> Send shell command(s): {commands}")
+        logging.info(f">>> Send shell command(s) on {self.ip}: {commands}")
         try:
             if type(commands) == str:
                 self._send_line_shell(commands)
@@ -160,7 +164,7 @@ class BaseSSHParamiko:
 
     # -----------------------------Exec commands----------------------------#
     def send_exec_commands(self, commands, print_output=True):
-        logging.info(f">>> Send exec show command(s): {commands}")
+        logging.info(f">>> Send exec show command(s) on {self.ip}: {commands}")
         try:
             result = ""
             if type(commands) == str:
@@ -242,14 +246,20 @@ class SFTPParamiko:
             logging.error(f"There was an error {error} while working with the file {file_path}")
 
     def put_file(self, local_path, remote_path):
+        """
+        Должен передаваться полный путь
+        """
         try:
             logging.info(f"Put {local_path} on {self.ip}")
             logging.debug(f"Local path: {local_path}, remote path: {remote_path}")
             # sftp.put returns "IOError: Failure" if the path name is a directory.
-            # Therefore, you need to add a filename to the directory.
+            # Therefore, need to add a filename to the directory.
             # https://github.com/paramiko/paramiko/issues/1000?ysclid=lg51z5k5nz705979083
-            self.sftp_cl.put(local_path, f"{remote_path}/{local_path}")
-            logging.info(f"File {local_path} has been copied to path {remote_path}")
+            if isinstance(local_path, Path):
+                self.sftp_cl.put(local_path, f"{remote_path}/{local_path.name}")
+                logging.info(f"File {local_path} has been copied to path {remote_path}")
+            else:
+                logging.error(f"Wrong type of local path - {type(local_path)} instead Path")
         except (paramiko.SFTPError, IOError) as error:
             logging.error(f"There was an error - '{error}' while working with the file {local_path}")
 
@@ -292,3 +302,45 @@ class SFTPParamiko:
     def close(self):
         self.root_cl.close()
         logging.info(f"<<<<< Close SFTP connection {self.ip}")
+
+
+class ScanDevices:
+    def __init__(self, devices_connection_data, test_devices):
+        test_device_list = []
+        self.params_list = []
+        for _, test_device in test_devices.items():
+            test_device_list += test_device
+        for dev in test_device_list:
+            self.params_list.append(devices_connection_data[dev])
+    def _scan_device(self, device_params):
+        ip_address = device_params["ip"]
+        logging.info(f"Scanning device {ip_address} for test")
+        try:
+            with SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(AutoAddPolicy())
+                ssh.connect(
+                    hostname=ip_address,
+                    username=device_params["login"],
+                    password=device_params["password"],
+                    look_for_keys=False,
+                    allow_agent=False,
+                    timeout=30
+                )
+                logging.info(f"Authentication on {ip_address} successful")
+                return True
+        except (socket.timeout, paramiko.SSHException, OSError) as error:
+            logging.error(f"An error {error} occurred on {ip_address}")
+            return False
+    def scan_devices(self, limit = 10):
+        scan_success = []
+        scan_fail = []
+        with ThreadPoolExecutor(max_workers=limit) as executor:
+            result = executor.map(self._scan_device, self.params_list)
+            for device, status in zip(self.params_list, result):
+                if status:
+                    scan_success.append(device["ip"])
+                else:
+                    scan_fail.append(device["ip"])
+            return scan_success, scan_fail
+
+

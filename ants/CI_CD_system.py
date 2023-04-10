@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from pprint import pprint
 from sys import argv
+import sys
 
 import paramiko
 import pexpect
@@ -14,7 +15,8 @@ import yaml
 from jinja2 import Environment, FileSystemLoader
 from rich.logging import RichHandler
 
-from auto_tests.connection import BaseSSHParamiko, SFTPParamiko
+from auto_tests.connection import BaseSSHParamiko, SFTPParamiko, ScanDevices
+from  auto_tests.timestamp_replacement.tsins import timestamp_test
 
 logging.basicConfig(
     format="{message}",
@@ -24,10 +26,13 @@ logging.basicConfig(
     handlers=[RichHandler()]
 )
 
-path_test = Path(Path.cwd(), 'ants', 'tests', 'timestamp_replacement')
-path_config = Path(Path.cwd(), 'data', 'network_test_configs')
-path_connection = Path(Path.cwd(), 'data', 'connection_data')
-path_default = Path(Path.cwd(), 'data', 'default_configs')
+
+path_home = Path(Path.home(), 'python', 'auto_network_test_system')
+path_default = Path(path_home, 'data', 'default_configs')
+path_test = Path(path_home, 'ants', 'tests', 'timestamp_replacement')
+path_connection = Path(path_home, 'data', 'connection_data')
+path_commands = Path(path_home, 'ants', 'auto_tests', 'timestamp_replacement', 'commands')
+path_test_network = Path(path_home, 'data', 'network_test_configs')
 
 
 # -----------------------------Adding Subinterfaces----------------------------#
@@ -81,16 +86,20 @@ def default_network_config_file(ssh_client, sftp_client, mngmt_params, file_path
 
 
 if __name__ == "__main__":
-    device_dict = {
-        "ssfp": ["ssfp4", "ssfp8"],
-        "rpi": ["rpi3"]
-    }
     with open(f"{path_connection}/devices.yaml") as file:
         devices = yaml.safe_load(file)
-    with open(f"{path_config}/network_params_for_test.yaml") as file:
+    with open(f"{path_test_network}/network_params_for_test.yaml") as file:
         network_params = yaml.safe_load(file)
 
-    current_test_device = "rpi3"
-    with BaseSSHParamiko(**devices[current_test_device]) as ssh_rpi3:
-        with SFTPParamiko(**devices[current_test_device]) as sftp_rpi3:
-            setup_network_config_file(ssh_rpi3, sftp_rpi3, network_params[current_test_device])
+    tsins_device_dict = {
+        "ssfp": ["ssfp4", "ssfp8"],
+        "rpi": ["rpi2", "rpi3"],
+    }
+    logging.info("Checking the availability of devices selected for the test")
+    scan_tsins_test = ScanDevices(devices, tsins_device_dict)
+    _, fail = scan_tsins_test.scan_devices()
+    if fail:
+        sys.exit(f"There are devices to which it was not possible to connect - {fail}"
+                 f"\nCannot run test.")
+    logging.info("TEST TIMESTAMP REPLACE")
+    #timestamp_test(devices, tsins_device_dict, network_params)
