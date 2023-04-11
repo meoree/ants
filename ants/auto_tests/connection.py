@@ -13,15 +13,18 @@ import pexpect
 from rich.logging import RichHandler
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-import yaml
 
 logging.basicConfig(
     format="{message}",
     datefmt="%H:%M:%S",
     style="{",
-    level=logging.INFO,
+    level=logging.DEBUG,
     handlers=[RichHandler()]
 )
+
+class ErrorInConnectionException(Exception):
+    pass
+
 
 class BaseSSHPexpect:
     def __init__(self, **device_data):
@@ -72,7 +75,10 @@ class BaseSSHParamiko:
         self.ip = device_data["ip"]
         self.login = device_data["login"]
         self.password = device_data["password"]
-        self.root_password = device_data["root_password"]
+        try:
+            self.root_password = device_data["root_password"]
+        except KeyError:
+            self.root_password = None
         self.short_sleep = 0.2
         self.long_sleep = 2
         self.max_read = 100000
@@ -88,23 +94,28 @@ class BaseSSHParamiko:
                 look_for_keys=False,
                 allow_agent=False,
                 timeout=30,
-                disabled_algorithms={'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
+                # disabled_algorithms={'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
             )
             logging.info("Authentication is successful")
 
             self._shell = self.cl.invoke_shell()
             time.sleep(self.short_sleep)
             self._shell.recv(self.max_read)
-            self._change_to_root()
+            if self.root_password:
+                self._change_to_root()
             self.promt = self._get_promt()
         except (socket.timeout, socket.error) as error:
-            logging.error(f"An error {error} occurred on {self.ip}")
-        except AuthenticationException:
-            logging.error("Authentication failed, please verify your credentials")
+            logging.critical(f"An error {error} occurred on {self.ip}")
+            raise ErrorInConnectionException(error)
+        except AuthenticationException as error:
+            logging.critical("Authentication failed, please verify your credentials")
+            raise ErrorInConnectionException(error)
         except BadHostKeyException as error:
-            logging.error(f"Unable to verify server's host key: {error}")
+            logging.critical(f"Unable to verify server's host key: {error}")
+            raise ErrorInConnectionException(error)
         except SSHException as error:
-            logging.error(f"Unable to establish SSH connection: {error}")
+            logging.critical(f"Unable to establish SSH connection: {error}")
+            raise ErrorInConnectionException(error)
 
     def _get_promt(self):
         time.sleep(self.short_sleep)
@@ -204,13 +215,17 @@ class SFTPParamiko:
             self.sftp_cl = self.root_cl.open_sftp()
             logging.info("SFTP was opened")
         except socket.timeout as error:
-            logging.error(f"An error {error} occurred on {self.ip}")
-        except AuthenticationException:
-            logging.error("Authentication failed, please verify your credentials")
+            logging.critical(f"An error {error} occurred on {self.ip}")
+            raise ErrorInConnectionException(error)
+        except AuthenticationException as error:
+            logging.critical("Authentication failed, please verify your credentials")
+            raise ErrorInConnectionException(error)
         except BadHostKeyException as error:
-            logging.error(f"Unable to verify server's host key: {error}")
+            logging.critical(f"Unable to verify server's host key: {error}")
+            raise ErrorInConnectionException(error)
         except SSHException as error:
-            logging.error(f"Unable to establish SSH connection: {error}")
+            logging.critical(f"Unable to establish SSH connection: {error}")
+            raise ErrorInConnectionException(error)
 
     # -----------------------------File actions----------------------------#
     def read_file(self, file_path):
@@ -308,10 +323,10 @@ class ScanDevices:
     def __init__(self, devices_connection_data, test_devices):
         test_device_list = []
         self.params_list = []
-        for _, test_device in test_devices.items():
-            test_device_list += test_device
-        for dev in test_device_list:
+
+        for dev in test_devices:
             self.params_list.append(devices_connection_data[dev])
+
     def _scan_device(self, device_params):
         ip_address = device_params["ip"]
         logging.info(f"Scanning device {ip_address} for test")
@@ -331,7 +346,8 @@ class ScanDevices:
         except (socket.timeout, paramiko.SSHException, OSError) as error:
             logging.error(f"An error {error} occurred on {ip_address}")
             return False
-    def scan_devices(self, limit = 10):
+
+    def scan_devices(self, limit=10):
         scan_success = []
         scan_fail = []
         with ThreadPoolExecutor(max_workers=limit) as executor:
@@ -342,5 +358,3 @@ class ScanDevices:
                 else:
                     scan_fail.append(device["ip"])
             return scan_success, scan_fail
-
-

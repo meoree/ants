@@ -26,9 +26,10 @@ path_connection = Path(path_home, 'data', 'connection_data')
 path_commands = Path(path_home, 'ants', 'auto_tests', 'timestamp_replacement', 'commands')
 path_test_network = Path(path_home, 'data', 'network_test_configs')
 
-
+#Нужно поменять на класс все это
 def timestamp_test(devices, tsins_device_dict, tsins_network_params):
     logging.info("PREPARATION FOR THE TEST")
+    print(devices)
 
     rpi_src = tsins_device_dict["rpi"][0]
     rpi_dst = tsins_device_dict["rpi"][1]
@@ -140,5 +141,11 @@ if __name__ == "__main__":
         network_params = yaml.safe_load(file)
     with open(f"{path_connection}/devices.yaml") as file:
         devices = yaml.safe_load(file)
-    timestamp_test(devices, tsins_device_dict, network_params)
+
+    devices_connection_data_dict = {}
+    for _, device in devices.items():
+        for keys, values in device.items():
+            devices_connection_data_dict[keys] = values
+
+    timestamp_test(devices_connection_data_dict, tsins_device_dict, network_params)
 
