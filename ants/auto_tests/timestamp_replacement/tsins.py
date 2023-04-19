@@ -1,5 +1,7 @@
-#!/usr/bin/env -B python3
 # -*- coding: utf-8 -*-
+"""
+Docstring
+"""
 import logging
 import re
 import time
@@ -9,6 +11,7 @@ import socket
 
 import yaml
 from rich.logging import RichHandler
+from jinja2 import Environment, FileSystemLoader
 
 from ants.auto_tests.connection import BaseSSHParamiko, SFTPParamiko
 
@@ -26,22 +29,23 @@ path_connection = Path(path_home, 'data', 'connection_data')
 path_commands = Path(path_home, 'ants', 'auto_tests', 'timestamp_replacement', 'commands')
 path_test_network = Path(path_home, 'data', 'network_test_configs')
 
-#Нужно поменять на класс все это
+
 def timestamp_test(devices, tsins_device_dict, tsins_network_params):
     logging.info("PREPARATION FOR THE TEST")
-    print(devices)
 
     rpi_src = tsins_device_dict["rpi"][0]
     rpi_dst = tsins_device_dict["rpi"][1]
+    rpi_ntp = tsins_device_dict["rpi"][2]
+    ntp_ip = tsins_network_params["rpi"][rpi_ntp]["ip"]
 
-    configure_ssfp(devices, "ssfp1_commands.txt", tsins_device_dict["ssfp"][0])
-    configure_ssfp(devices, "ssfp2_commands.txt", tsins_device_dict["ssfp"][1])
+    configure_ssfp(devices, "ssfp1_commands.txt", tsins_device_dict["ssfp"][0], ntp_ip)
+    configure_ssfp(devices, "ssfp2_commands.txt", tsins_device_dict["ssfp"][1], ntp_ip)
 
-    ip_src = tsins_network_params[rpi_src]["ip"]
-    ip_dst = tsins_network_params[rpi_dst]["ip"]
-    intf_src = tsins_network_params[rpi_src]["interface"]
-    vlan_src = tsins_network_params[rpi_src]["vlan"]
-    vlan_dst = tsins_network_params[rpi_src]["vlan"]
+    ip_src = tsins_network_params["rpi"][rpi_src]["ip"]
+    ip_dst = tsins_network_params["rpi"][rpi_dst]["ip"]
+    intf_src = tsins_network_params["rpi"][rpi_src]["interface"]
+    vlan_src = tsins_network_params["rpi"][rpi_src]["vlan"]
+    vlan_dst = tsins_network_params["rpi"][rpi_src]["vlan"]
 
     mac_src = get_rpi_settings_for_script(devices, rpi_src, vlan_src)
     mac_dst = get_rpi_settings_for_script(devices, rpi_dst, vlan_dst)
@@ -55,29 +59,30 @@ def timestamp_test(devices, tsins_device_dict, tsins_network_params):
             cl_dst.send_shell_commands(["mkdir tests", "cd tests", "mkdir tsins", "cd tsins"])
             for number_of_test in range(1, 6):
                 logging.info(f"Number of test: {number_of_test}")
-                cl_dst.send_shell_commands(f"tcpdump -i {intf_src}.{vlan_src} -c 1000 -w "
-                                           f"{datetime.now().strftime('%d-%m-%Y_%H:%M:%S')}_tsins_{number_of_test}.pcap",
-                                           print_output=True)
-                time.sleep(2)
-                cl_src.send_shell_commands(f"python3 {script_path} "
-                                           f"{mac_dst} {mac_src} {ip_src} {ip_dst} {intf_src} {vlan_src} {number_of_test}",
-                                           print_output=True)
+                output_dst = cl_dst.send_shell_commands(f"tcpdump -i {intf_src}.{vlan_src} -c 1000 -w "
+                        f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}_tsins_{number_of_test}.pcap")
+                logging.debug(output_dst)
+                time.sleep(3)
+                output_src = cl_src.send_shell_commands(f"python3 {script_path} "
+                        f"{mac_src} {mac_dst} {ip_src} {ip_dst} {intf_src} {vlan_src} {number_of_test}")
+                logging.debug(output_src)
                 time.sleep(5)
     # Дальше дампы надо отправить на сервер
     logging.info("TEST FINISHED")
-    stop_services_ssfp(devices,  tsins_device_dict["ssfp"][0])
     stop_services_ssfp(devices, tsins_device_dict["ssfp"][0])
-
-def remove_test_configs(devices, tsins_device_dict):
     stop_services_ssfp(devices, tsins_device_dict["ssfp"][0])
-    stop_services_ssfp(devices, tsins_device_dict["ssfp"][1])
+    logging.info("Commands were removed")
 
-def configure_ssfp(devices, file_with_commands, ssfp):
+
+def configure_ssfp(devices, file_with_commands, ssfp, ntp_ip):
     try:
-        with open(f"{path_commands}/{file_with_commands}") as file_with_commands:
-            ssfp1_commands = file_with_commands.read().split('\n')
+        environment = Environment(loader=FileSystemLoader(path_commands),
+                                  trim_blocks=True, lstrip_blocks=True)
+        template = environment.get_template(file_with_commands)
+        commands = template.render({'ntp_ip': ntp_ip}).split("\n")
         with BaseSSHParamiko(**devices[ssfp]) as ssh:
-            output = ssh.send_shell_commands(ssfp1_commands, print_output=False)
+            output = ssh.send_shell_commands(commands)
+            logging.debug(output)
         return output
     except (FileNotFoundError, FileExistsError) as error:
         logging.error(f"An error occurred while working with the file '{file_with_commands}' - {error}")
@@ -88,9 +93,10 @@ def configure_ssfp(devices, file_with_commands, ssfp):
 def stop_services_ssfp(devices, ssfp):
     try:
         with BaseSSHParamiko(**devices[ssfp]) as ssh:
-            output = ssh.send_shell_commands(["run-klish", "configure terminal", "timesync stop profile0",
-                                              "tsins stop profile0"], print_output=False)
-        return output
+            output = ssh.send_shell_commands(["run-klish", "configure terminal",
+                                              "timesync stop profile0",
+                                              "tsins stop profile0"])
+            logging.debug(output)
     except OSError as error:
         logging.error(f"An error has occurred on the device {ssh.ip} - {error}")
 
@@ -134,7 +140,7 @@ def send_script_to_rpi(devices, script_file, rpi):
 if __name__ == "__main__":
     tsins_device_dict = {
         "ssfp": ["ssfp4", "ssfp8"],
-        "rpi": ["rpi2", "rpi3"],
+        "rpi": ["rpi2", "rpi3", "rpi5"],
     }
     # должен передавать ci-cd
     with open(f"{path_test_network}/network_params_for_test.yaml") as file:
@@ -146,6 +152,4 @@ if __name__ == "__main__":
     for _, device in devices.items():
         for keys, values in device.items():
             devices_connection_data_dict[keys] = values
-
     timestamp_test(devices_connection_data_dict, tsins_device_dict, network_params)
-

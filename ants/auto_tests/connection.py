@@ -1,10 +1,8 @@
-#!/usr/bin/env -B python3
 # -*- coding: utf-8 -*-
 import logging
 import re
 import socket
 import time
-from typing import List, Any
 
 from paramiko.client import SSHClient, AutoAddPolicy
 from paramiko.ssh_exception import AuthenticationException, SSHException, BadHostKeyException
@@ -18,9 +16,10 @@ logging.basicConfig(
     format="{message}",
     datefmt="%H:%M:%S",
     style="{",
-    level=logging.DEBUG,
+    level=logging.INFO,
     handlers=[RichHandler()]
 )
+
 
 class ErrorInConnectionException(Exception):
     pass
@@ -117,12 +116,11 @@ class BaseSSHParamiko:
             logging.critical(f"Unable to establish SSH connection: {error}")
             raise ErrorInConnectionException(error)
         except EOFError:
-            #Данная ошибка возникает при попытке подключения к устройству (конкретно только на SNR)
-            #Тестово лечится попыткой переподключения или
+            # Данная ошибка возникает при попытке подключения к устройству (конкретно только на SNR)
+            # Тестово лечится попыткой переподключения или
             # Добавлением паузы (5 сек), если подключения к свитчам происходит подряд
             logging.error("Try to reconnect")
             self.__init__(**device_data)
-
 
     def _get_promt(self):
         time.sleep(self.short_sleep)

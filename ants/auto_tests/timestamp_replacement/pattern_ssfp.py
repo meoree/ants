@@ -6,7 +6,7 @@ import logging
 
 from scapy.all import Scapy_Exception
 from scapy.layers.inet import UDP, IP
-from scapy.layers.l2 import sendp, Ether, Dot1Q
+from scapy.layers.l2 import Ether, Dot1Q, sendp
 from scapy.packet import fuzz
 
 # Remove scapy WARNING message

@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""
+Docstring
+"""
 import logging
 import re
 import sys
@@ -9,13 +12,14 @@ import yaml
 from jinja2 import Environment, FileSystemLoader
 from rich.logging import RichHandler
 
+from auto_tests.timestamp_replacement.tsins import timestamp_test
 from auto_tests.connection import BaseSSHParamiko, SFTPParamiko, ScanDevices
 
 logging.basicConfig(
     format="{message}",
     datefmt="%H:%M:%S",
     style="{",
-    level=logging.INFO,
+    level=logging.DEBUG,
     handlers=[RichHandler()]
 )
 
@@ -26,21 +30,34 @@ path_connection = Path(path_home, 'data', 'connection_data')
 path_commands = Path(path_home, 'ants', 'auto_tests', 'timestamp_replacement', 'commands')
 path_test_network = Path(path_home, 'data', 'network_test_configs')
 
+rpi_config_file_path = "/etc/network/interfaces"
+ssfp_config_file_path = "/etc/network/interfaces.d/gbe"
+
 
 class BaseTest:
-    def __init__(self, devices_connection_dict : dict, test_device_list : list, network_params_for_test : dict):
+    def __init__(self, devices_connection_dict: dict, all_devices_for_test: dict,
+                 network_params_for_test: dict):
         """
         Docstring for BaseTest.
         """
         self.devices_connection_data_dict = devices_connection_dict
-        self.network_params_for_test = network_params_for_test
-        self.test_device_list = test_device_list
+        self.network_params = {}
+        self.test_device_list = []
+
+        for device_type, devices in network_params_for_test.items():
+            for dev, dev_values in devices.items():
+                self.network_params[dev] = dev_values
+
+        for device_type, devices in all_devices_for_test.items():
+            for element in devices:
+                self.test_device_list.append(element)
 
         self.scan_devices()
 
+    def configure_test(self):
         for current_device in self.test_device_list:
             connection_data_dict = self.devices_connection_data_dict[current_device]
-            vlan = self.network_params_for_test[current_device]['vlan']
+            vlan = self.network_params[current_device]['vlan']
             switch1 = connection_data_dict["switch1"]
             port1 = connection_data_dict["port1"]
             self.configure_switch(switch1, port1, vlan, option='add')
@@ -52,9 +69,36 @@ class BaseTest:
                 port2 = None
             if switch2:
                 self.configure_switch(switch2, port2, vlan, option='add')
-            #self.configure_network_config_file(current_device)
+            if 'ssfp' in current_device:
+                file_path = ssfp_config_file_path
+            elif 'rpi' in current_device:
+                file_path = rpi_config_file_path
+            else:
+                raise ValueError("Error")
+            self.configure_network_config_file(current_device, file_path)
 
-        # self._configure_network()
+    def deconfidure_test(self):
+        for current_device in self.test_device_list:
+            connection_data_dict = self.devices_connection_data_dict[current_device]
+            vlan = self.network_params[current_device]['vlan']
+            switch1 = connection_data_dict["switch1"]
+            port1 = connection_data_dict["port1"]
+            self.configure_switch(switch1, port1, vlan, option='remove')
+            try:
+                switch2 = connection_data_dict["switch2"]
+                port2 = connection_data_dict["port2"]
+            except KeyError:
+                switch2 = None
+                port2 = None
+            if switch2:
+                self.configure_switch(switch2, port2, vlan, option='remove')
+            if 'ssfp' in current_device:
+                file_path = ssfp_config_file_path
+            elif 'rpi' in current_device:
+                file_path = rpi_config_file_path
+            else:
+                raise ValueError("Error")
+            self.deconfigure_network_config_file(current_device, file_path)
 
     def scan_devices(self):
         logging.info("Checking the availability of devices selected for the test")
@@ -67,7 +111,7 @@ class BaseTest:
         else:
             logging.info("All devices are available")
 
-    def configure_switch(self, switch: str, port: str, vlan: str, option: str) -> str:
+    def configure_switch(self, switch: str, port: str, vlan: str, option: str):
         time.sleep(5)
         if option == "add" or option == "remove":
             logging.info(f"Configuring port {port} on switch {switch}")
@@ -75,7 +119,7 @@ class BaseTest:
             config_switch_template = ["configure terminal",
                                       f"vlan {vlan}",
                                       f"interface ethernet 1/0/{port}",
-                                      f"switchport mode trunk",
+                                      "switchport mode trunk",
                                       f"switchport trunk allowed vlan {option} {vlan}",
                                       "exit"]
 
@@ -91,14 +135,12 @@ class BaseTest:
                 else:
                     logging.error(f"Unknown vlan type {type(vlan)}")
                 logging.debug(result)
-                return result
         else:
             logging.error(f"Unknown option {option}, use 'add' or 'remove'")
-            return False
 
     def _template_network_config_file(self, current_params_for_test: dict) -> str:
-        print(current_params_for_test)
-        env = Environment(loader=FileSystemLoader(path_test_network), trim_blocks=True, lstrip_blocks=True)
+        env = Environment(loader=FileSystemLoader(path_test_network),
+                          trim_blocks=True, lstrip_blocks=True)
         template = env.get_template("change_net_config_file.txt")
         return template.render(current_params_for_test)
 
@@ -115,36 +157,51 @@ class BaseTest:
         if ip_network in ip_content:
             logging.error(f"The IP address: {ip_network} is already configured on the device")
         elif intf_vlan_network in intf_vlan_content:
-            logging.error(f"The subinterface: {intf_vlan_network} is already configured on the device")
+            logging.error(f"The subinterface: {intf_vlan_network} "
+                          f"is already configured on the device")
         else:
             logging.info(f"IP address {ip_network} and subinterface {intf_vlan_network} are free")
             template_network_config = self._template_network_config_file(current_params_for_test)
             return template_network_config
         return False
 
-    def configure_network_config_file(self, current_device: str):
-        current_params_for_test = self.network_params_for_test[current_device]
-        file_path = current_params_for_test["path"]
+    def configure_network_config_file(self, current_device: str, file_path: str):
+        current_params_for_test = self.network_params[current_device]
         with SFTPParamiko(**devices_connection_data_dict[current_device]) as sftp:
             file_content = sftp.read_file(file_path)
             template = self.check_network_config_file(current_params_for_test, file_content)
             if template:
                 logging.info("Configuring a subinterface on a device")
                 sftp.add_to_file(template, file_path)
-                with BaseSSHParamiko(**devices_connection_data_dict[current_device]) as ssh:
-                    ssh.send_exec_commands("sudo systemctl restart networking.service")
+                file_content = sftp.read_file(file_path)
+                logging.debug(file_content)
+            with BaseSSHParamiko(**devices_connection_data_dict[current_device]) as ssh:
+                ssh.send_exec_commands("sudo systemctl restart networking.service")
 
+    def _default_template_network_config_file(self, current_default_params: dict,
+                                              file_config: str) -> str:
+        env = Environment(loader=FileSystemLoader(path_default), trim_blocks=True, lstrip_blocks=True)
+        template = env.get_template(file_config)
+        return template.render(current_default_params)
 
-# -----------------------------Сброс файла в дефолт----------------------------#
-def default_template_network_config_file(management_device):
-    env = Environment(loader=FileSystemLoader(path_default), trim_blocks=True, lstrip_blocks=True)
-    template = env.get_template("rpi_config_template.txt")
-    return template.render(management_device)
-
-def default_network_config_file(ssh_client, sftp_client, mngmt_params, file_path):
-    content = default_template_network_config_file(mngmt_params)
-    sftp_client.overwrite_file(content, file_path)
-    ssh_client.send_exec_commands("sudo systemctl restart networking.service")
+    def deconfigure_network_config_file(self, current_device: str, file_path: str):
+        current_default_params = self.devices_connection_data_dict[current_device]
+        if 'ssfp' in current_device:
+            template = self._default_template_network_config_file(current_default_params,
+                                                                  "ssfp_default_config_template.txt")
+        elif 'rpi' in current_device:
+            template = self._default_template_network_config_file(current_default_params,
+                                                                  "rpi_default_config_template.txt")
+        else:
+            raise ValueError("Error")
+        if template:
+            with SFTPParamiko(**devices_connection_data_dict[current_device]) as sftp:
+                logging.info("Deconfiguring a subinterface on a device")
+                sftp.overwrite_file(template, file_path)
+                file_content = sftp.read_file(file_path)
+                logging.debug(file_content)
+            with BaseSSHParamiko(**devices_connection_data_dict[current_device]) as ssh:
+                ssh.send_exec_commands("sudo systemctl restart networking.service")
 
 
 if __name__ == "__main__":
@@ -158,11 +215,12 @@ if __name__ == "__main__":
         for keys, values in device.items():
             devices_connection_data_dict[keys] = values
 
-    test_device_list = []
-    for device, device_params in network_params.items():
-            test_device_list.append(device)
+    all_devices_for_test = {}
+    for device_type, device in network_params.items():
+        all_devices_for_test[device_type] = list(device.keys())
 
-    BaseTest(devices_connection_data_dict, test_device_list, network_params)
-
-    # logging.info("TEST TIMESTAMP REPLACE")
-    # timestamp_test(devices_connection_data_dict, tsins_device_dict, network_params)
+    test1 = BaseTest(devices_connection_data_dict, all_devices_for_test, network_params)
+    test1.configure_test()
+    logging.info("TEST TIMESTAMP REPLACE")
+    timestamp_test(devices_connection_data_dict, all_devices_for_test, network_params)
+    test1.deconfidure_test()

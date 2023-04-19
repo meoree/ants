@@ -6,7 +6,7 @@ timesync config profile0
 duration endless
 mode slave
 ntp count 1
-ntp host 0 10.3.50.122
+ntp host 0 {{ ntp_ip }}
 type ntp
 up
 timesync start profile0
