@@ -3,6 +3,8 @@
 import time
 import argparse
 import logging
+import re
+from ipaddress import IPv4Address, AddressValueError
 
 from scapy.all import Scapy_Exception
 from scapy.layers.inet import UDP, IP
@@ -31,7 +33,16 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, vlan, number_of_te
     fill2 = "X" * 1452
     pattern2 = "BBBBBBBB"
 
+    if not (is_valid_mac(mac_src) and is_valid_mac(mac_dst)):
+        logging.error("Invalid MAC address")
+        return False
+    if type(interface) != str:
+        logging.error("Invalid interface")
+        return False
     try:
+        IPv4Address(ip_src)
+        IPv4Address(ip_dst)
+        vlan = int(vlan)
         if int(number_of_test) == 1:
             data = pattern1
         elif int(number_of_test) == 2:
@@ -42,8 +53,15 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, vlan, number_of_te
             data = fill2 + pattern1 + pattern2
         elif int(number_of_test) == 5:
             data = fill1 + pattern1 + fill1 + pattern2 + fill1
-    except ValueError as error:
-        logging.error(f"An error occurred while executing the script: {error}")
+        else:
+            logging.error("Invalid number of tests")
+            return False
+    except AddressValueError:
+        logging.error("Invalid IP-address")
+        return False
+    except ValueError:
+        logging.error("Invalid number of tests")
+        return False
 
     packet_with_pattern = (
             fuzz(
@@ -57,8 +75,17 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, vlan, number_of_te
 
     try:
         sendp(packet_with_pattern, count=count_of_packets, iface=interface)
+        return True
     except Scapy_Exception as error:
         print(f"An error occurred while trying to send scapy packets: {error}")
+
+
+def is_valid_mac(value):
+    allowed = re.compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})$")
+    if allowed.match(value) is None:
+        return False
+    else:
+        return True
 
 
 def print_timestamp():
@@ -80,6 +107,6 @@ if __name__ == "__main__":
     parser.add_argument('vlan', type=int,
                         help='VLAN')
     parser.add_argument('number_of_test', type=int,
-                        help='Number of test')
+                        help='Number of test (1-5)')
     args = vars(parser.parse_args())
     send_packets(**args)

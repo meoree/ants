@@ -8,12 +8,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 import socket
+import os
 
 import yaml
 from rich.logging import RichHandler
 from jinja2 import Environment, FileSystemLoader
+from ipaddress import IPv4Address, AddressValueError
 
-from ants.auto_tests.connection import BaseSSHParamiko, SFTPParamiko
+from ants.connection import BaseSSHParamiko, SFTPParamiko
 
 logging.basicConfig(
     format="{message}",
@@ -33,19 +35,42 @@ path_test_network = Path(path_home, 'data', 'network_test_configs')
 def timestamp_test(devices, tsins_device_dict, tsins_network_params):
     logging.info("PREPARATION FOR THE TEST")
 
-    rpi_src = tsins_device_dict["rpi"][0]
-    rpi_dst = tsins_device_dict["rpi"][1]
-    rpi_ntp = tsins_device_dict["rpi"][2]
-    ntp_ip = tsins_network_params["rpi"][rpi_ntp]["ip"]
+    try:
+        rpi_src = tsins_device_dict["rpi"][0]
+        rpi_dst = tsins_device_dict["rpi"][1]
+        rpi_ntp = tsins_device_dict["rpi"][2]
+
+        ntp_ip = tsins_network_params["rpi"][rpi_ntp]["ip"]
+        ip_src = tsins_network_params["rpi"][rpi_src]["ip"]
+        ip_dst = tsins_network_params["rpi"][rpi_dst]["ip"]
+        intf_src = tsins_network_params["rpi"][rpi_src]["interface"]
+        vlan_src = tsins_network_params["rpi"][rpi_src]["vlan"]
+        vlan_dst = tsins_network_params["rpi"][rpi_src]["vlan"]
+
+    except (KeyError, IndexError):
+        logging.error("3 RPi and 2 SSFP should be transmitted")
+        return False
+
+    try:
+        int(vlan_src) + int(vlan_dst)
+    except ValueError:
+        logging.error("VLAN must be a number in network parameters for test")
+        return False
+
+    try:
+        IPv4Address(ip_dst)
+        IPv4Address(ip_src)
+        IPv4Address(ntp_ip)
+    except AddressValueError:
+        logging.error("Wrong IP address in network parameters for test")
+        return False
+
+    if type(intf_src) != str:
+        logging.error("Wrong interface in network parameters for test")
+        return False
 
     configure_ssfp(devices, "ssfp1_commands.txt", tsins_device_dict["ssfp"][0], ntp_ip)
     configure_ssfp(devices, "ssfp2_commands.txt", tsins_device_dict["ssfp"][1], ntp_ip)
-
-    ip_src = tsins_network_params["rpi"][rpi_src]["ip"]
-    ip_dst = tsins_network_params["rpi"][rpi_dst]["ip"]
-    intf_src = tsins_network_params["rpi"][rpi_src]["interface"]
-    vlan_src = tsins_network_params["rpi"][rpi_src]["vlan"]
-    vlan_dst = tsins_network_params["rpi"][rpi_src]["vlan"]
 
     mac_src = get_rpi_settings_for_script(devices, rpi_src, vlan_src)
     mac_dst = get_rpi_settings_for_script(devices, rpi_dst, vlan_dst)
@@ -60,11 +85,11 @@ def timestamp_test(devices, tsins_device_dict, tsins_network_params):
             for number_of_test in range(1, 6):
                 logging.info(f"Number of test: {number_of_test}")
                 output_dst = cl_dst.send_shell_commands(f"tcpdump -i {intf_src}.{vlan_src} -c 1000 -w "
-                        f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}_tsins_{number_of_test}.pcap")
+                                                        f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}_tsins_{number_of_test}.pcap")
                 logging.debug(output_dst)
                 time.sleep(3)
                 output_src = cl_src.send_shell_commands(f"python3 {script_path} "
-                        f"{mac_src} {mac_dst} {ip_src} {ip_dst} {intf_src} {vlan_src} {number_of_test}")
+                                                        f"{mac_src} {mac_dst} {ip_src} {ip_dst} {intf_src} {vlan_src} {number_of_test}")
                 logging.debug(output_src)
                 time.sleep(5)
     # Дальше дампы надо отправить на сервер
@@ -72,10 +97,14 @@ def timestamp_test(devices, tsins_device_dict, tsins_network_params):
     stop_services_ssfp(devices, tsins_device_dict["ssfp"][0])
     stop_services_ssfp(devices, tsins_device_dict["ssfp"][0])
     logging.info("Commands were removed")
+    return True
 
 
 def configure_ssfp(devices, file_with_commands, ssfp, ntp_ip):
     try:
+        if os.stat(Path(path_commands, file_with_commands)).st_size == 0:
+            logging.info(f"File {file_with_commands} is empty")
+            return False
         environment = Environment(loader=FileSystemLoader(path_commands),
                                   trim_blocks=True, lstrip_blocks=True)
         template = environment.get_template(file_with_commands)
@@ -83,11 +112,12 @@ def configure_ssfp(devices, file_with_commands, ssfp, ntp_ip):
         with BaseSSHParamiko(**devices[ssfp]) as ssh:
             output = ssh.send_shell_commands(commands)
             logging.debug(output)
-        return output
+            return output
     except (FileNotFoundError, FileExistsError) as error:
         logging.error(f"An error occurred while working with the file '{file_with_commands}' - {error}")
     except OSError as error:
-        logging.error(f"An error has occurred on the device {ssh.ip} - {error}")
+        logging.error(f"An error has occurred on the device - {error}")
+    return False
 
 
 def stop_services_ssfp(devices, ssfp):
@@ -107,9 +137,15 @@ def get_rpi_settings_for_script(devices, rpi, vlan):
             output = ssh.send_exec_commands("ip a")
             match = re.search(rf"\w+.{vlan}.+link/ether\s+(?P<mac>\S+)", output, re.DOTALL)
             if match:
-                return match.group('mac')
+                mac_address = match.group('mac')
+                if is_valid_mac(mac_address):
+                    return match.group('mac')
+                else:
+                    logging.error(f"Invalid MAC address received on {rpi}")
+                    return False
             else:
                 logging.error(f"The subinterface is not configured on the device {ssh.ip}")
+                return False
     except socket.timeout as error:
         logging.error(f"An error has occurred on the device - {error}")
 
@@ -136,6 +172,12 @@ def send_script_to_rpi(devices, script_file, rpi):
     except OSError as error:
         logging.error(f"An error has occurred on the device {rpi} - {error}")
 
+def is_valid_mac(value):
+    allowed = re.compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})$")
+    if allowed.match(value) is None:
+        return False
+    else:
+        return True
 
 if __name__ == "__main__":
     tsins_device_dict = {
@@ -152,4 +194,8 @@ if __name__ == "__main__":
     for _, device in devices.items():
         for keys, values in device.items():
             devices_connection_data_dict[keys] = values
+
+
+    print(devices_connection_data_dict)
+
     timestamp_test(devices_connection_data_dict, tsins_device_dict, network_params)

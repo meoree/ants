@@ -13,7 +13,7 @@ from jinja2 import Environment, FileSystemLoader
 from rich.logging import RichHandler
 
 from auto_tests.timestamp_replacement.tsins import timestamp_test
-from auto_tests.connection import BaseSSHParamiko, SFTPParamiko, ScanDevices
+from connection import BaseSSHParamiko, SFTPParamiko, ScanDevices
 
 logging.basicConfig(
     format="{message}",
