@@ -55,6 +55,7 @@ class BaseTest:
         self.scan_devices()
 
     def configure_test(self):
+        logging.info("Configuring network for test")
         for current_device in self.test_device_list:
             connection_data_dict = self.devices_connection_data_dict[current_device]
             vlan = self.network_params[current_device]['vlan']
@@ -78,6 +79,7 @@ class BaseTest:
             self.configure_network_config_file(current_device, file_path)
 
     def deconfidure_test(self):
+        logging.info("Deconfiguring network for test")
         for current_device in self.test_device_list:
             connection_data_dict = self.devices_connection_data_dict[current_device]
             vlan = self.network_params[current_device]['vlan']
@@ -222,5 +224,6 @@ if __name__ == "__main__":
     test1 = BaseTest(devices_connection_data_dict, all_devices_for_test, network_params)
     test1.configure_test()
     logging.info("TEST TIMESTAMP REPLACE")
-    timestamp_test(devices_connection_data_dict, all_devices_for_test, network_params)
+    if timestamp_test(devices_connection_data_dict, all_devices_for_test, network_params):
+        logging.info("TEST TIMESTAMP COMPLETED SUCCESSFULLY")
     test1.deconfidure_test()
