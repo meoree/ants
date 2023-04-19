@@ -81,7 +81,7 @@ class BaseSSHParamiko:
             self.root_password = None
         self.short_sleep = 0.2
         self.long_sleep = 2
-        self.max_read = 100000
+        self.max_read = 10000
 
         logging.info(f">>>>> Connection to {self.ip} as {self.login}")
         try:
@@ -94,7 +94,7 @@ class BaseSSHParamiko:
                 look_for_keys=False,
                 allow_agent=False,
                 timeout=30,
-                # disabled_algorithms={'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
+                disabled_algorithms={'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
             )
             logging.info("Authentication is successful")
 
@@ -116,6 +116,13 @@ class BaseSSHParamiko:
         except SSHException as error:
             logging.critical(f"Unable to establish SSH connection: {error}")
             raise ErrorInConnectionException(error)
+        except EOFError:
+            #Данная ошибка возникает при попытке подключения к устройству (конкретно только на SNR)
+            #Тестово лечится попыткой переподключения или
+            # Добавлением паузы (5 сек), если подключения к свитчам происходит подряд
+            logging.error("Try to reconnect")
+            self.__init__(**device_data)
+
 
     def _get_promt(self):
         time.sleep(self.short_sleep)
@@ -136,6 +143,7 @@ class BaseSSHParamiko:
 
     def send_shell_commands(self, commands, print_output=True):
         time.sleep(self.long_sleep)
+        output = ""
         logging.info(f">>> Send shell command(s) on {self.ip}: {commands}")
         try:
             if type(commands) == str:
@@ -143,7 +151,6 @@ class BaseSSHParamiko:
                 time.sleep(self.long_sleep)
                 output = self._formatting_output()
             else:
-                output = ""
                 for command in commands:
                     self._send_line_shell(command)
                     time.sleep(self.long_sleep)
@@ -175,7 +182,7 @@ class BaseSSHParamiko:
 
     # -----------------------------Exec commands----------------------------#
     def send_exec_commands(self, commands, print_output=True):
-        logging.info(f">>> Send exec show command(s) on {self.ip}: {commands}")
+        logging.info(f">>> Send exec command(s) on {self.ip}: {commands}")
         try:
             result = ""
             if type(commands) == str:
@@ -321,7 +328,6 @@ class SFTPParamiko:
 
 class ScanDevices:
     def __init__(self, devices_connection_data, test_devices):
-        test_device_list = []
         self.params_list = []
 
         for dev in test_devices:
@@ -342,6 +348,8 @@ class ScanDevices:
                     timeout=30
                 )
                 logging.info(f"Authentication on {ip_address} successful")
+                logging.info(f"<<< Close connection {ip_address}")
+                ssh.close()
                 return True
         except (socket.timeout, paramiko.SSHException, OSError) as error:
             logging.error(f"An error {error} occurred on {ip_address}")

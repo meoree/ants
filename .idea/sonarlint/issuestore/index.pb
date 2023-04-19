@@ -16,3 +16,5 @@ e
 5ants/auto_tests/timestamp_replacement/pattern_ssfp.py,c/4/c46246de44f29eb11bab03f834d36d3081547e23
 q
 Aants/auto_tests/timestamp_replacement/commands/ssfp1_commands.txt,e/1/e1b25a66fdf43132ff7ea5bed46a1f523ad142b6
+^
+.ants/auto_tests/timestamp_replacement/tsins.py,d/9/d9195a35f93c772b4a6636362d7ceed217b85bc5

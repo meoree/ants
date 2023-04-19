@@ -2,6 +2,7 @@
 import logging
 import re
 import sys
+import time
 from pathlib import Path
 
 import yaml
@@ -42,19 +43,16 @@ class BaseTest:
             vlan = self.network_params_for_test[current_device]['vlan']
             switch1 = connection_data_dict["switch1"]
             port1 = connection_data_dict["port1"]
-
+            self.configure_switch(switch1, port1, vlan, option='add')
             try:
                 switch2 = connection_data_dict["switch2"]
                 port2 = connection_data_dict["port2"]
-                self.configure_switch(switch1, port1, vlan, option='add')
             except KeyError:
                 switch2 = None
                 port2 = None
             if switch2:
                 self.configure_switch(switch2, port2, vlan, option='add')
-                pass
-            print(current_device)
-            self.configure_network_config_file(current_device)
+            #self.configure_network_config_file(current_device)
 
         # self._configure_network()
 
@@ -70,6 +68,7 @@ class BaseTest:
             logging.info("All devices are available")
 
     def configure_switch(self, switch: str, port: str, vlan: str, option: str) -> str:
+        time.sleep(5)
         if option == "add" or option == "remove":
             logging.info(f"Configuring port {port} on switch {switch}")
             result = ""
@@ -77,7 +76,8 @@ class BaseTest:
                                       f"vlan {vlan}",
                                       f"interface ethernet 1/0/{port}",
                                       f"switchport mode trunk",
-                                      f"switchport trunk allowed vlan {option} {vlan}"]
+                                      f"switchport trunk allowed vlan {option} {vlan}",
+                                      "exit"]
 
             with BaseSSHParamiko(**devices_connection_data_dict[switch]) as ssh:
                 if type(vlan) == int:
@@ -97,6 +97,7 @@ class BaseTest:
             return False
 
     def _template_network_config_file(self, current_params_for_test: dict) -> str:
+        print(current_params_for_test)
         env = Environment(loader=FileSystemLoader(path_test_network), trim_blocks=True, lstrip_blocks=True)
         template = env.get_template("change_net_config_file.txt")
         return template.render(current_params_for_test)
@@ -117,7 +118,7 @@ class BaseTest:
             logging.error(f"The subinterface: {intf_vlan_network} is already configured on the device")
         else:
             logging.info(f"IP address {ip_network} and subinterface {intf_vlan_network} are free")
-            template_network_config = self._template_network_config_file(network_params)
+            template_network_config = self._template_network_config_file(current_params_for_test)
             return template_network_config
         return False
 
