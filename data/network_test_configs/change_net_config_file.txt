@@ -1,0 +1,16 @@
+
+{% if vlan != 1 %} 
+#VLAN {{ vlan }}
+auto {{ interface }}.{{ vlan }}
+allow-hotplug {{ interface }}.{{ vlan }}
+iface {{ interface }}.{{ vlan }} inet static
+    address {{ ip }}
+    netmask {{ netmask }}
+
+{% else %}
+auto {{ interface }}
+allow-hotplug {{ interface }}
+iface {{ interface }} inet static
+address {{ ip }}
+netmask {{ netmask }}
+{% endif %}

@@ -1,0 +1,30 @@
+ssfp:
+  ssfp4:
+    vlan: 550
+    interface: gbe0
+    ip: "10.3.50.111"
+    netmask: "255.255.255.0"
+  ssfp8:
+    vlan: 550
+    interface: gbe0
+    ip: "10.3.50.105"
+    netmask: "255.255.255.0"
+rpi:
+  #scr rpi
+  rpi2:
+    vlan: 550
+    interface: eth0
+    ip: "10.3.50.102"
+    netmask: "255.255.255.0"
+  rpi3:
+    #dst rpi
+    vlan: 550
+    interface: eth0
+    ip: "10.3.50.103"
+    netmask: "255.255.255.0"
+  rpi5:
+    #ntp rpi
+    vlan: 550
+    interface: eth0
+    ip: "10.3.50.122"
+    netmask: "255.255.255.0"
