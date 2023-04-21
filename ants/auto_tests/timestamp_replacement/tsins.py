@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
+""" Tsins test
+Testing the tsins function on the M720.
+When traffic passes through the M720 in transit, the twins service on two M720 replaces
+timestamps instead of patterns in the packet data field.
+Packets with patterns are generated on RPi using scapy and sent.
+Traffic with timestamps comes to another RPi, where dump is captured.
 """
-Docstring
-"""
+
 import logging
 import re
 import time
@@ -95,7 +100,7 @@ def timestamp_test(devices, tsins_device_dict, tsins_network_params):
     # Дальше дампы надо отправить на сервер
     logging.info("TEST FINISHED")
     stop_services_ssfp(devices, tsins_device_dict["ssfp"][0])
-    stop_services_ssfp(devices, tsins_device_dict["ssfp"][0])
+    stop_services_ssfp(devices, tsins_device_dict["ssfp"][1])
     logging.info("Commands were removed")
     return True
 
@@ -194,8 +199,5 @@ if __name__ == "__main__":
     for _, device in devices.items():
         for keys, values in device.items():
             devices_connection_data_dict[keys] = values
-
-
-    print(devices_connection_data_dict)
 
     timestamp_test(devices_connection_data_dict, tsins_device_dict, network_params)

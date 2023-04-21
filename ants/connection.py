@@ -16,7 +16,7 @@ logging.basicConfig(
     format="{message}",
     datefmt="%H:%M:%S",
     style="{",
-    level=logging.INFO,
+    level=logging.DEBUG,
     handlers=[RichHandler()]
 )
 

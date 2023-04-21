@@ -1,5 +1,5 @@
-data
 __pycache__
 .DS_Store
+**/.DS_Store
 ants.egg-info
-__init__.py
+.pytest_cache
