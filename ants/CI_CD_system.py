@@ -221,11 +221,9 @@ if __name__ == "__main__":
     for device_type, device in network_params.items():
         all_devices_for_test[device_type] = list(device.keys())
 
-    #test1 = BaseTest(devices_connection_data_dict, all_devices_for_test, network_params)
-    #test1.configure_test()
-    #logging.info("TEST TIMESTAMP REPLACE")
-    #if timestamp_test(devices_connection_data_dict, all_devices_for_test, network_params):
-    #    logging.info("TEST TIMESTAMP COMPLETED SUCCESSFULLY")
-    #test1.deconfidure_test()
-
-    print(network_params)
+    test1 = BaseTest(devices_connection_data_dict, all_devices_for_test, network_params)
+    test1.configure_test()
+    logging.info("TEST TIMESTAMP REPLACE")
+    if timestamp_test(devices_connection_data_dict, all_devices_for_test, network_params):
+        logging.info("TEST TIMESTAMP COMPLETED SUCCESSFULLY")
+    test1.deconfidure_test()

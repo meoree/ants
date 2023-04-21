@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import time
+"""
+This script send to rpi and run from rpi.
+Script generate packets with pattern using scapy for timestamp replacement test.
+"""
 import argparse
 import logging
 import re
@@ -15,19 +18,23 @@ from scapy.packet import fuzz
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 
-def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, vlan, number_of_test, count_of_packets=1000):
-    """
-        Отправляет пакеты с заданными параметрами и вставленными паттернами в поле дата 
-        для тестирования функции временных меток на SSFP.
-       
-        Параметры:
-            mac_dst (str): MAC-адрес назначения
-            mac_src (str): MAC-адрес источника
-            ip_src (str): IP-адрес источника
-            ip_dst (str): IP-адрес назначения
-            count_of_packets (int): количество пакетов для отправки. По умолчанию 1.
+def send_packets(mac_dst: str, mac_src: str, ip_src: str, ip_dst: str,
+                 interface: str, vlan: int, number_of_test: int, count_of_packets=1000) -> bool:
+    """Sends packets with the given parameters
+       and inserted patterns in the date field to test the timestamp feature on SSFP.
 
+    :param mac_dst: destination MAC address
+    :param mac_src: source MAC address
+    :param ip_src: destination IP address
+    :param ip_dst: source IP address
+    :param interface: interface name
+    :param vlan: VLAN ID
+    :param number_of_test: number of test (1-5)
+    :param count_of_packets: default count of packets = 1000
+    :return: True if script sent packets
+            False: if some error occurred
     """
+
     fill1 = "X" * 484
     pattern1 = "AAAAAAAA"
     fill2 = "X" * 1452
@@ -36,7 +43,7 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, vlan, number_of_te
     if not (is_valid_mac(mac_src) and is_valid_mac(mac_dst)):
         logging.error("Invalid MAC address")
         return False
-    if type(interface) != str:
+    if not isinstance(interface, str):
         logging.error("Invalid interface")
         return False
     try:
@@ -63,6 +70,7 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, vlan, number_of_te
         logging.error("Invalid number of tests")
         return False
 
+
     packet_with_pattern = (
             fuzz(
                 Ether(src=mac_src, dst=mac_dst)
@@ -76,20 +84,22 @@ def send_packets(mac_dst, mac_src, ip_src, ip_dst, interface, vlan, number_of_te
     try:
         sendp(packet_with_pattern, count=count_of_packets, iface=interface)
         return True
-    except Scapy_Exception as error:
-        print(f"An error occurred while trying to send scapy packets: {error}")
-
-
-def is_valid_mac(value):
-    allowed = re.compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})$")
-    if allowed.match(value) is None:
+    except Scapy_Exception:
         return False
-    else:
+
+
+def is_valid_mac(value : str) -> bool:
+    """Check if the MAC address is valid
+
+        :param value: MAC address
+        :return: True: if the MAC address is valid
+                False: otherwise
+        """
+    template = r"(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})$"
+    allowed = re.compile(template)
+    if allowed.match(value):
         return True
-
-
-def print_timestamp():
-    print(f"Timestamp: {time.time()}")
+    return False
 
 
 if __name__ == "__main__":
@@ -102,8 +112,10 @@ if __name__ == "__main__":
                         help='Source IPv4-address')
     parser.add_argument('ip_dst', type=str,
                         help='Destination IPv4-address')
-    parser.add_argument('interface', type=str,
-                        help='The interface from that the packets will be sent in the format "eth0"')
+    parser.add_argument(
+        'interface', type=str,
+        help='The interface from that the packets will be sent in the format "eth0"'
+    )
     parser.add_argument('vlan', type=int,
                         help='VLAN')
     parser.add_argument('number_of_test', type=int,
