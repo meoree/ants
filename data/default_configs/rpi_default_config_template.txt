@@ -12,7 +12,6 @@ iface eth0.4000 inet static
         gateway {{ gw }}
         {% endif %}
 
-route add default gw 192.168.89.1 eth0.4000
 # Management ip VLAN 4050
 auto eth0.4050
 iface eth0.4050 inet static

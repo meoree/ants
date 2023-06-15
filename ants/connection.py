@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 import re
 import socket
@@ -214,7 +213,8 @@ class SFTPParamiko:
                 password=self.root_password,
                 look_for_keys=False,
                 allow_agent=False,
-                timeout=30
+                timeout=30,
+                disabled_algorithms={'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']},
             )
             logging.info("Authentication as root is successful")
             self.sftp_cl = self.root_cl.open_sftp()

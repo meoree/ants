@@ -13,14 +13,20 @@ timesync start profile0
 tsins stop profile0
 tsins stop profile1
 tsins config profile0
-duration endless 
-level iface 0 udp 
+duration endless
+{% if pattern1 and intf1 == 0 %}
+level iface 0 udp
+pattern iface 0 {{ pattern1 }}
+status iface 0 on
+status iface 1 off
+tspoint iface 0 {{ direction1 }}
+{% endif %}
+{% if pattern1 and intf1 == 1 %}
 level iface 1 udp
-pattern iface 0 4141414141414141 
-pattern iface 1 4141414141414141 
+pattern iface 1 {{ pattern1 }}
 status iface 0 off
 status iface 1 on
-tspoint iface 0 egress 
-tspoint iface 1 egress
+tspoint iface 1 {{ direction1 }}
+{% endif %}
 up
 tsins start profile0
