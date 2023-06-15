@@ -1,0 +1,15 @@
+mac_src: dc:a6:32:bf:0b:fa
+mac_dst: dc:a6:32:bf:0c:48
+ip_src: 11.10.68.6
+ip_dst: 11.10.68.8
+intf_src: eth0
+vlan_src: 2545
+pattern1: AAAAAAAAAAAAAAAA
+pattern2: BBBBBBBBBBBBBBBB
+intf1: 1
+intf2: 1
+direction1: ingress
+direction2: egress
+interval: 0.01
+count_of_packets: 2000
+packet_size: 1500
