@@ -43,7 +43,8 @@ if __name__ == "__main__":
     for device_type, device in network_params.items():
         all_devices_for_test[device_type] = list(device.keys())
 
-    configure_network = ConfigureNetwork(devices_connection_data_dict, all_devices_for_test, network_params)
+    #configure_network = ConfigureNetwork(devices_connection_data_dict, all_devices_for_test, network_params)
     logging.info("TEST TIMESTAMP REPLACE")
-    retcode = pytest.main("-c tests/test_timestamp_replacement.py -m stand".split())
+    #опция -s включает отображение logging при запуске pytest
+    retcode = pytest.main("-c tests/test_timestamp_replacement.py -m stand -s".split())
     deconfigure_network = DeconfigureNetwork(devices_connection_data_dict, all_devices_for_test, network_params)

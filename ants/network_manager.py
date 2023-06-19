@@ -129,10 +129,7 @@ class ConfigureNetwork(BaseNetworkManager):
             else:
                 return False
         with BaseSSHParamiko(**self.devices_connection_data[current_device]) as ssh:
-            output = ssh.send_exec_commands("sudo systemctl restart networking.service")
-            logging.debug(output)
-
-
+            ssh.send_shell_commands("reboot")
 
 
 class DeconfigureNetwork(BaseNetworkManager):
@@ -202,7 +199,7 @@ class DeconfigureNetwork(BaseNetworkManager):
 
         logging.info(f"Configuring port {port} on switch {switch}")
         config_switch_template = ["configure terminal",
-                                  f"vlan {vlan}",
+                                  f"no vlan {vlan}",
                                   f"interface ethernet 1/0/{port}",
                                   "switchport mode trunk",
                                   f"switchport trunk allowed vlan remove {vlan}",

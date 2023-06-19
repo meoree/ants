@@ -1,30 +1,30 @@
 ssfp:
   ssfp4:
-    vlan: 2545
+    vlan: 1001
     interface: gbe0
-    ip: "11.10.68.2"
+    ip: "10.1.10.111"
     netmask: "255.255.255.0"
   ssfp8:
-    vlan: 2545
+    vlan: 1001
     interface: gbe0
-    ip: "11.10.68.4"
+    ip: "10.1.10.105"
     netmask: "255.255.255.0"
 rpi:
   #scr rpi
   rpi2:
-    vlan: 2545
+    vlan: 1001
     interface: eth0
-    ip: "11.10.68.6"
+    ip: "10.1.10.102"
     netmask: "255.255.255.0"
   rpi3:
     #dst rpi
-    vlan: 2545
+    vlan: 1001
     interface: eth0
-    ip: "11.10.68.8"
+    ip: "10.1.10.103"
     netmask: "255.255.255.0"
   rpi5:
     #ntp rpi
-    vlan:  2545
+    vlan:  1001
     interface: eth0
-    ip: "11.10.68.10"
+    ip: "10.1.10.122"
     netmask: "255.255.255.0"

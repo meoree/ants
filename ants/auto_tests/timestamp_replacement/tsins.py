@@ -118,7 +118,7 @@ def timestamp_test(devices_connection_data: dict, tsins_device: dict,
         with BaseSSHParamiko(**devices_connection_data[rpi_dst]) as cl_dst:
             logging.info("TEST STARTED")
             # tcpdump results stored tests/tsins/
-            cl_dst.send_shell_commands(["mkdir tests", "cd tests", "mkdir tsins", "cd tsins"])
+            cl_dst.send_shell_commands(["cd /home/pi/", "mkdir tests", "cd tests", "mkdir tsins", "cd tsins"])
             output_dst = cl_dst.send_shell_commands(
                     f"tcpdump -i {intf_src}.{vlan_src} -c {count_of_packets} udp  -w "
                     f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}"
@@ -129,7 +129,7 @@ def timestamp_test(devices_connection_data: dict, tsins_device: dict,
             cl_src.send_shell_commands("cd /home/pi/tests/tsins/")
             output_src = cl_src.send_shell_commands(f"python3 {script_path}")
             logging.debug(output_src)
-            time.sleep(60)
+            time.sleep(300)
     # Need to send dumps to the server
     logging.info("TEST FINISHED")
     stop_services_ssfp(devices_connection_data, tsins_device["ssfp"][0])
@@ -138,7 +138,7 @@ def timestamp_test(devices_connection_data: dict, tsins_device: dict,
 
     logging.info("Check pcap file")
     with BaseSSHParamiko(**devices_connection_data[rpi_dst]) as cl:
-        cl.send_shell_commands("cd tests/tsins/")
+        cl.send_shell_commands("cd /home/pi/tests/tsins/")
         output = cl.send_shell_commands("ls")
         logging.debug(output)
         print(output)
