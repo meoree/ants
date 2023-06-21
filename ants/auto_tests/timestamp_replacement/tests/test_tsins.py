@@ -2,7 +2,7 @@ import pytest
 import yaml
 from pathlib import Path
 
-from ants.auto_tests.timestamp_replacement.tsins import timestamp_test, configure_ssfp, is_valid_mac
+from ants.auto_tests.timestamp_replacement.tsins import timestamp_test_with_rpi, configure_device, is_valid_mac
 
 path_home = Path(Path.home(), 'python', 'auto_network_test_system')
 path_connection = Path(path_home, 'data', 'connection_data')
@@ -82,41 +82,60 @@ def wrong_rpi_src_intf(correct_tsins_device_dict, network_params):
     wrong_rpi_src_intf["rpi"][rpi_src]["interface"] = 1
     return wrong_rpi_src_intf
 
-def test_wrong_tsins_device_dict(device_connection_data_dict, wrong_tsins_device_dict,
-                                  network_params):
-    assert timestamp_test(device_connection_data_dict,
-                          wrong_tsins_device_dict, network_params) == False
+@pytest.fixture
+def timestamp_test_params_rpi():
+    params = (
+        {"pattern1": "AAAAAAAAAAAAAAAA",
+         "pattern2": "BBBBBBBBBBBBBBBB",
+         "intf1": 1,
+         "intf2": 1,
+         "direction1": "ingress",
+         "direction2": "egress",
+         "interval": 0.01,
+         "count_of_packets": 2000,
+         "packet_size": 1500}
+    )
+    return params
 
+@pytest.mark.code
+def test_wrong_tsins_device_dict(
+        device_connection_data_dict, wrong_tsins_device_dict, network_params, timestamp_test_params_rpi):
+    assert timestamp_test_with_rpi(
+        device_connection_data_dict, wrong_tsins_device_dict, network_params, timestamp_test_params_rpi) == False
+@pytest.mark.code
 def test_wrong_rpi_ntp_ip(device_connection_data_dict, correct_tsins_device_dict,
-                                  wrong_rpi_ntp_ip):
-    assert timestamp_test(device_connection_data_dict,
-                          correct_tsins_device_dict, wrong_rpi_ntp_ip) == False
-def test_wrong_rpi_src_ip(device_connection_data_dict, correct_tsins_device_dict,
-                                  wrong_rpi_src_ip):
-    assert timestamp_test(device_connection_data_dict,
-                          correct_tsins_device_dict, wrong_rpi_src_ip) == False
-def test_wrong_rpi_dst_ip(device_connection_data_dict, correct_tsins_device_dict,
-                                  wrong_rpi_dst_ip):
-    assert timestamp_test(device_connection_data_dict,
-                          correct_tsins_device_dict, wrong_rpi_dst_ip) == False
-def test_wrong_rpi_src_vlan(device_connection_data_dict, correct_tsins_device_dict,
-                                  wrong_rpi_src_vlan):
-    assert timestamp_test(device_connection_data_dict,
-                          correct_tsins_device_dict, wrong_rpi_src_vlan) == False
-
-def test_wrong_rpi_dst_vlan(device_connection_data_dict, correct_tsins_device_dict,
-                                  wrong_rpi_dst_vlan):
-    assert timestamp_test(device_connection_data_dict,
-                          correct_tsins_device_dict, wrong_rpi_dst_vlan) == False
-
-def test_wrong_rpi_src_intf(device_connection_data_dict, correct_tsins_device_dict,
-                                  wrong_rpi_src_intf):
-    assert timestamp_test(device_connection_data_dict,
-                          correct_tsins_device_dict, wrong_rpi_src_intf) == False
-
-def test_configure_ssfp(device_connection_data_dict, correct_tsins_device_dict):
-    assert configure_ssfp(device_connection_data_dict, "ssfp_commands.txt",
-                        correct_tsins_device_dict["ssfp"][0], "10.10.2.1") == False
+                                  wrong_rpi_ntp_ip, timestamp_test_params_rpi):
+    assert timestamp_test_with_rpi(device_connection_data_dict,
+                                   correct_tsins_device_dict, wrong_rpi_ntp_ip, timestamp_test_params_rpi) == False
+@pytest.mark.code
+def test_wrong_rpi_src_ip(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_ip, timestamp_test_params_rpi):
+    assert timestamp_test_with_rpi(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_ip, timestamp_test_params_rpi) == False
+@pytest.mark.code
+def test_wrong_rpi_dst_ip(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_ip, timestamp_test_params_rpi):
+    assert timestamp_test_with_rpi(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_ip, timestamp_test_params_rpi) == False
+@pytest.mark.code
+def test_wrong_rpi_src_vlan(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_vlan, timestamp_test_params_rpi):
+    assert timestamp_test_with_rpi(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_vlan, timestamp_test_params_rpi) == False
+@pytest.mark.code
+def test_wrong_rpi_dst_vlan(device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_vlan, timestamp_test_params_rpi):
+    assert timestamp_test_with_rpi(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_vlan, timestamp_test_params_rpi) == False
+@pytest.mark.code
+def test_wrong_rpi_src_intf(
+        device_connection_data_dict, correct_tsins_device_dict,wrong_rpi_src_intf, timestamp_test_params_rpi):
+    assert timestamp_test_with_rpi(
+        device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_intf, timestamp_test_params_rpi) == False
+@pytest.mark.code
+def test_configure_device(device_connection_data_dict, correct_tsins_device_dict, timestamp_test_params_rpi):
+    assert configure_device(
+        device_connection_data_dict, "ssfp_commands.txt", correct_tsins_device_dict["ssfp"][0],
+        timestamp_test_params_rpi) == False
 
 @pytest.mark.parametrize(
     ("mac_address", "result"),
@@ -128,6 +147,6 @@ def test_configure_ssfp(device_connection_data_dict, correct_tsins_device_dict):
         ("36:97:91:29:ea:40", True)
     ],
 )
-
+@pytest.mark.code
 def test_is_valid_mac(mac_address, result):
     assert is_valid_mac(mac_address) == result

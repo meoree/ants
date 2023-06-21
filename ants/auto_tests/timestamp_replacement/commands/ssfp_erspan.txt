@@ -1,0 +1,27 @@
+run-klish
+configure terminal
+erspan stop profile0
+erspan stop profile1
+erspan config profile0
+duration endless
+erspan 0 session_id 1
+erspan 0 hw_id 1
+erspan 0 mtu {{ packet_size }}
+erspan 0 header src ip {{ ssfp_ip }}
+erspan 0 header src mac auto
+erspan 0 header dst ip {{ ntp_ip }}
+erspan 0 header dst mac auto
+erspan 0 header vlan count 1
+erspan 0 header vlan number 0 id {{ vlan }}
+topology iface erspan0 port a
+topology iface erspan0 status on
+topology iface capture0 port b
+topology iface capture0 status on
+topology iface capture1 status off
+filter num 0 on
+filter num 1 off
+filter num 0 erspan 0
+filter num 0 capture 0
+filter num 0 direction tx
+up
+erspan start profile0

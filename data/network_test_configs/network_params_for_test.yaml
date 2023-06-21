@@ -28,3 +28,10 @@ rpi:
     interface: eth0
     ip: "10.1.10.122"
     netmask: "255.255.255.0"
+etn:
+  etn3:
+    vlan: 1001
+    ip_port_a: "10.1.10.1"
+    netmask_port_a: "255.255.255.0"
+    ip_port_b: "10.1.10.2"
+    netmask_port_b: "255.255.255.0"

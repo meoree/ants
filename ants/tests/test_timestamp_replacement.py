@@ -2,11 +2,12 @@ import pytest
 import yaml
 from pathlib import Path
 
-from ants.auto_tests.timestamp_replacement.tsins import timestamp_test
+from ants.auto_tests.timestamp_replacement.tsins import timestamp_test_with_rpi, timestamp_test_with_bercut
 
 path_home = Path(Path.home(), 'python', 'auto_network_test_system')
 path_connection = Path(path_home, 'data', 'connection_data')
 path_test_network = Path(path_home, 'data', 'network_test_configs')
+
 
 @pytest.fixture
 def devices_connection_data_dict():
@@ -37,7 +38,7 @@ def network_params():
 
 
 @pytest.mark.parametrize(
-    ("timestamp_test_params", "result"),
+    ("timestamp_test_params_rpi", "result_rpi"),
     # pattern1, intf1, direction1 for ssfp1
     # pattern2, intf2, direction2 for ssfp2
     [
@@ -85,7 +86,42 @@ def network_params():
 )
 
 @pytest.mark.stand
-def test_timestamp(devices_connection_data_dict, all_devices_for_test, network_params,
-                   timestamp_test_params, result):
-    assert timestamp_test(devices_connection_data_dict, all_devices_for_test, network_params,
-                          timestamp_test_params) == result
+@pytest.mark.short
+def test_timestamp_short(devices_connection_data_dict, all_devices_for_test, network_params,
+                         timestamp_test_params_rpi, result_rpi):
+    assert timestamp_test_with_rpi(devices_connection_data_dict, all_devices_for_test, network_params,
+                                   timestamp_test_params_rpi) == result_rpi
+
+@pytest.mark.parametrize(
+    ("timestamp_test_params_bercut", "result_etn"),
+    [
+        # pattern, intf1, direction1 for ssfp1
+        # pattern, intf2, direction2 for ssfp2
+        ({"pattern": "ABCD0123",
+          "intf1": 1,
+          "intf2": 1,
+          "direction1": "ingress",
+          "direction2": "egress",
+          "duration": "00:05:00",  # in format hh:mm:ss
+          "rate": 40,  # use a rate value of up to 40%, otherwise erspan will drop the packets and not forward them.
+          "packet_size": 1518},
+         True),
+        # pattern, intf1, direction1 for ssfp1
+        # pattern, intf2, direction2 for ssfp2
+        ({"pattern": "C3B5D9A8",
+          "intf1": 0,
+          "intf2": 0,
+          "direction1": "ingress",
+          "direction2": "ingress",
+          "duration": "00:05:00",  # in format hh:mm:ss
+          "rate": 40,  # use a rate value of up to 40%, otherwise erspan will drop the packets and not forward them.
+          "packet_size": 1256},
+         True),
+    ],
+)
+@pytest.mark.stand
+@pytest.mark.long
+def test_timestamp_long(devices_connection_data_dict, all_devices_for_test, network_params,
+                        timestamp_test_params_bercut, result_etn):
+    assert timestamp_test_with_bercut(devices_connection_data_dict, all_devices_for_test, network_params,
+                                      timestamp_test_params_bercut) == result_etn

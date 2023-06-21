@@ -21,9 +21,23 @@ status iface 0 on
 status iface 1 off
 tspoint iface 0 {{ direction1 }}
 {% endif %}
+{% if pattern and intf1 == 0 %}
+level iface 0 udp
+pattern iface 0 {{ pattern * 2 }}
+status iface 0 on
+status iface 1 off
+tspoint iface 0 {{ direction1 }}
+{% endif %}
 {% if pattern1 and intf1 == 1 %}
 level iface 1 udp
 pattern iface 1 {{ pattern1 }}
+status iface 0 off
+status iface 1 on
+tspoint iface 1 {{ direction1 }}
+{% endif %}
+{% if pattern and intf1 == 1 %}
+level iface 1 udp
+pattern iface 1 {{ pattern * 2 }}
 status iface 0 off
 status iface 1 on
 tspoint iface 1 {{ direction1 }}

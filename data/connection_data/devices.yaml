@@ -53,6 +53,17 @@ rpi:
     root_password: root
     switch1: snr2
     port1: 29
+etn:
+  etn3:
+    ip: "192.168.89.114"
+    netmask: "255.255.255.0"
+    gw: "192.168.89.1"
+    login: admin
+    password: PleaseChangeTheAdminPassword
+    switch1: snr1
+    port1: 14
+    switch2: snr3
+    port2: 14
 switch:
   snr1:
     ip: "192.168.89.100"

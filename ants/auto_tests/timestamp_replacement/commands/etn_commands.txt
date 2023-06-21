@@ -1,0 +1,25 @@
+y1564 stop
+bert stop
+rfc2544 stop
+txgen stop
+order870 stop
+configure
+loopback a layer off
+loopback b layer 4
+bert header src ip {{ ip_port_a }}
+bert header dst ip {{ ip_port_b }}
+bert header autoarp on
+bert header vlan count 1
+bert header vlan 1 id {{ vlan }}
+bert topology tx a
+bert topology rx a
+bert frame type constant
+bert frame constant 1518
+bert level 4
+bert pattern user
+bert user-pattern {{ pattern }}
+bert rate {{ rate }}
+bert duration {{ duration }}
+exit
+show bert
+bert start

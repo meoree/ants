@@ -6,12 +6,13 @@ import yaml
 from rich.logging import RichHandler
 
 from network_manager import ConfigureNetwork, DeconfigureNetwork
+from ants.auto_tests.timestamp_replacement.tsins import timestamp_test_with_bercut
 
 logging.basicConfig(
     format="{message}",
     datefmt="%H:%M:%S",
     style="{",
-    level=logging.DEBUG,
+    level=logging.INFO,
     handlers=[RichHandler()]
 )
 
@@ -43,8 +44,9 @@ if __name__ == "__main__":
     for device_type, device in network_params.items():
         all_devices_for_test[device_type] = list(device.keys())
 
-    #configure_network = ConfigureNetwork(devices_connection_data_dict, all_devices_for_test, network_params)
+    сonfigure_network = ConfigureNetwork(devices_connection_data_dict, all_devices_for_test, network_params)
     logging.info("TEST TIMESTAMP REPLACE")
     #опция -s включает отображение logging при запуске pytest
-    retcode = pytest.main("-c tests/test_timestamp_replacement.py -m stand -s".split())
+    #опция -v включает нормальное отображение тестов в pytest
+    retcode = pytest.main(["-c", "tests/test_timestamp_replacement.py", "-m", "stand and short", "-s", "-v"])
     deconfigure_network = DeconfigureNetwork(devices_connection_data_dict, all_devices_for_test, network_params)

@@ -12,7 +12,7 @@ logging.basicConfig(
     format="{message}",
     datefmt="%H:%M:%S",
     style="{",
-    level=logging.DEBUG,
+    level=logging.INFO,
     handlers=[RichHandler()]
 )
 
@@ -84,11 +84,15 @@ class ConfigureNetwork(BaseNetworkManager):
                 self.configure_switch(switch2, port2, vlan)
             if 'ssfp' in current_device:
                 file_path = ssfp_config_file_path
+                self.configure_network_config_file(current_device, file_path)
             elif 'rpi' in current_device:
                 file_path = rpi_config_file_path
+                self.configure_network_config_file(current_device, file_path)
+            elif 'etn' in current_device:
+                self.configure_etn(current_device)
             else:
                 raise ErrorInNetworkManagerException(f"Unknown device type: {current_device}")
-            self.configure_network_config_file(current_device, file_path)
+
 
     def configure_switch(self, switch: str, port: str, vlan: str):
         time.sleep(5)
@@ -131,6 +135,23 @@ class ConfigureNetwork(BaseNetworkManager):
         with BaseSSHParamiko(**self.devices_connection_data[current_device]) as ssh:
             ssh.send_shell_commands("reboot")
 
+    def configure_etn(self, current_device: str):
+        current_params_for_test = self.network_params[current_device]
+        vlan = current_params_for_test['vlan']
+        ip_port_a = current_params_for_test['ip_port_a']
+        ip_port_b = current_params_for_test['ip_port_b']
+        netmask_port_a = current_params_for_test['netmask_port_a']
+        netmask_port_b = current_params_for_test['netmask_port_b']
+        with BaseSSHParamiko(**self.devices_connection_data[current_device]) as ssh:
+            output = ssh.send_shell_commands(
+                ["configure", f"network a ip {ip_port_a}", f"network a subnet {netmask_port_a}",
+                "gbe a vlan count 1", f"gbe a vlan 1 id {vlan}", f"network b ip {ip_port_b}",
+                f"network b subnet {netmask_port_b}", "gbe b vlan count 1",
+                f"gbe b vlan 1 id {vlan}", "exit", "show network a", "show network b",
+                "show gbe a", "show gbe b"]
+            )
+        logging.debug(output)
+
 
 class DeconfigureNetwork(BaseNetworkManager):
     def __init__(self, devices_connection_data: dict, all_devices_for_test: dict,
@@ -156,11 +177,15 @@ class DeconfigureNetwork(BaseNetworkManager):
                 self.deconfigure_switch(switch2, port2, vlan)
             if 'ssfp' in current_device:
                 file_path = ssfp_config_file_path
+                self.deconfigure_network_config_file(current_device, file_path)
             elif 'rpi' in current_device:
                 file_path = rpi_config_file_path
+                self.deconfigure_network_config_file(current_device, file_path)
+            elif 'etn' in current_device:
+                self.deconfigure_etn(current_device)
             else:
                 raise ErrorInNetworkManagerException(f"Unknown device type: {current_device}")
-            self.deconfigure_network_config_file(current_device, file_path)
+
 
     def deconfigure_network_config_file(self, current_device: str, file_path: str):
         current_default_params = self.devices_connection_data[current_device]
@@ -208,6 +233,17 @@ class DeconfigureNetwork(BaseNetworkManager):
         with BaseSSHParamiko(**self.devices_connection_data[switch]) as ssh:
             output = ssh.send_shell_commands(config_switch_template)
             logging.debug(output)
+
+    def deconfigure_etn(self, current_device: str):
+        with BaseSSHParamiko(**self.devices_connection_data[current_device]) as ssh:
+            output = ssh.send_shell_commands(
+                ["configure", f"network a ip 192.168.1.1", f"network a subnet 255.255.255.0",
+                "gbe a vlan count off", f"network b ip 192.168.2.1",
+                f"network b subnet 255.255.255.0", "gbe b vlan count off",
+                "exit", "show network a", "show network b",
+                "show gbe a", "show gbe b"]
+            )
+        logging.debug(output)
 
 
 def _default_template_network_config_file(current_default_params: dict,
