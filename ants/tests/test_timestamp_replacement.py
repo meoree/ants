@@ -84,9 +84,9 @@ def network_params():
          True),
     ],
 )
-
-@pytest.mark.stand
+@pytest.mark.cli
 @pytest.mark.short
+@pytest.mark.sw_02
 def test_timestamp_short(devices_connection_data_dict, all_devices_for_test, network_params,
                          timestamp_test_params_rpi, result_rpi):
     assert timestamp_test_with_rpi(devices_connection_data_dict, all_devices_for_test, network_params,
@@ -119,8 +119,10 @@ def test_timestamp_short(devices_connection_data_dict, all_devices_for_test, net
          True),
     ],
 )
-@pytest.mark.stand
+
+@pytest.mark.cli
 @pytest.mark.long
+@pytest.mark.sw_02
 def test_timestamp_long(devices_connection_data_dict, all_devices_for_test, network_params,
                         timestamp_test_params_bercut, result_etn):
     assert timestamp_test_with_bercut(devices_connection_data_dict, all_devices_for_test, network_params,

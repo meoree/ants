@@ -10,15 +10,15 @@ import pexpect
 from rich.logging import RichHandler
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+import requests
 
 logging.basicConfig(
     format="{message}",
     datefmt="%H:%M:%S",
     style="{",
-    level=logging.INFO,
+    level=logging.DEBUG,
     handlers=[RichHandler()]
 )
-
 
 class ErrorInConnectionException(Exception):
     pass
@@ -322,6 +322,64 @@ class SFTPParamiko:
     def close(self):
         self.root_cl.close()
         logging.info(f"<<<<< Close SFTP connection {self.ip}")
+
+
+class RESTfulAPIClient:
+    def __init__(self, **device_data):
+        self.ip = device_data["ip"]
+        self.login = device_data["login"]
+        self.password = device_data["password"]
+
+        logging.info(f">>>>> Connection to {self.ip} with RESTful API")
+        try:
+            connection = requests.post(f"http://{self.ip}/api", json=
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "call",
+                "params":
+                    ["00000000000000000000000000000000", "session", "login",
+                     {
+                         "username": self.login, "password": self.password, "timeout": 300
+                     }
+                     ]
+            })
+            self.connection_id = connection.json()["result"][1]["ubus_rpc_session"]
+            logging.info("Connected to %s", self.ip)
+            logging.debug("Connection id is %s", self.connection_id)
+        except (IndexError, OSError, requests.exceptions.ConnectionError):
+            logging.error("Can't connect to %s", self.ip)
+
+    def send_command_restapi(self, service, action, json_commands):
+        if action not in ["setprm", "getprm", "getsts"]:
+            logging.error("Invalid action in function send_command_restapi")
+            return False
+        logging.info(">>>>> Sending commands to %s", self.ip)
+        try:
+            r = requests.post(f"http://{self.ip}/api", json=
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "call",
+                "params":
+                    [
+                        self.connection_id, service, action, json_commands
+                    ]
+            }
+                              )
+        except (IndexError, OSError, requests.exceptions.ConnectionError):
+            logging.error("Error occurred on %s", self.ip)
+            return False
+        try:
+            if r.json()['result'][1]["retcode"] != 0:
+                logging.error("Commands don't send on %s. Error: %s", self.ip, r.json()['result'][1]['retmsg'])
+                return False
+            logging.info("Commands sent successfully on %s", self.ip)
+            logging.debug("Result received from %s: %s", self.ip, r.json())
+            return r.json()
+        except KeyError:
+            logging.error("Commands don't send on %s. Error: %s. Check the service name.", self.ip, r.json()['error'])
+            return False
 
 
 class ScanDevices:

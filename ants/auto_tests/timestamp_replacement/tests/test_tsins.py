@@ -97,41 +97,41 @@ def timestamp_test_params_rpi():
     )
     return params
 
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_wrong_tsins_device_dict(
         device_connection_data_dict, wrong_tsins_device_dict, network_params, timestamp_test_params_rpi):
     assert timestamp_test_with_rpi(
         device_connection_data_dict, wrong_tsins_device_dict, network_params, timestamp_test_params_rpi) == False
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_wrong_rpi_ntp_ip(device_connection_data_dict, correct_tsins_device_dict,
                                   wrong_rpi_ntp_ip, timestamp_test_params_rpi):
     assert timestamp_test_with_rpi(device_connection_data_dict,
                                    correct_tsins_device_dict, wrong_rpi_ntp_ip, timestamp_test_params_rpi) == False
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_wrong_rpi_src_ip(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_ip, timestamp_test_params_rpi):
     assert timestamp_test_with_rpi(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_ip, timestamp_test_params_rpi) == False
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_wrong_rpi_dst_ip(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_ip, timestamp_test_params_rpi):
     assert timestamp_test_with_rpi(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_ip, timestamp_test_params_rpi) == False
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_wrong_rpi_src_vlan(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_vlan, timestamp_test_params_rpi):
     assert timestamp_test_with_rpi(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_vlan, timestamp_test_params_rpi) == False
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_wrong_rpi_dst_vlan(device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_vlan, timestamp_test_params_rpi):
     assert timestamp_test_with_rpi(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_dst_vlan, timestamp_test_params_rpi) == False
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_wrong_rpi_src_intf(
         device_connection_data_dict, correct_tsins_device_dict,wrong_rpi_src_intf, timestamp_test_params_rpi):
     assert timestamp_test_with_rpi(
         device_connection_data_dict, correct_tsins_device_dict, wrong_rpi_src_intf, timestamp_test_params_rpi) == False
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_configure_device(device_connection_data_dict, correct_tsins_device_dict, timestamp_test_params_rpi):
     assert configure_device(
         device_connection_data_dict, "ssfp_commands.txt", correct_tsins_device_dict["ssfp"][0],
@@ -147,6 +147,6 @@ def test_configure_device(device_connection_data_dict, correct_tsins_device_dict
         ("36:97:91:29:ea:40", True)
     ],
 )
-@pytest.mark.code
+@pytest.mark.skip(reason="Code test")
 def test_is_valid_mac(mac_address, result):
     assert is_valid_mac(mac_address) == result

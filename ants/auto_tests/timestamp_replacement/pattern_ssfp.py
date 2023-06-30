@@ -17,7 +17,7 @@ from scapy.packet import fuzz
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 
-def send_packets(params : dict) -> bool:
+def send_packets(params: dict) -> bool:
     """Sends packets with the given parameters
        and inserted patterns in the date field to test the timestamp feature on SSFP.
 
